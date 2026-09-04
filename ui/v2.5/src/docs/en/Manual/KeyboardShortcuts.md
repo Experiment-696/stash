@@ -1,4 +1,4 @@
-# Keyboard shortcuts
+# Keyboard Shortcuts
 
 ## Global shortcuts
 
@@ -6,7 +6,7 @@
 |-------------------|--------|
 | `?` | Display manual |
 
-### Global navigation
+### Global Navigation
 
 | Keyboard sequence | Target page |
 |-------------------|--------|
@@ -94,13 +94,13 @@
 | `l` | A/B looping toggle. Press once to set start point. Press again to set end point. Press again to disable loop. |
 | `Shift + l` | Toggle looping of scene when it's over |
 
-### Scene markers tab shortcuts
+### Scene Markers tab shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `n` | Display Create Markers dialog |
 
-### Scene edit tab shortcuts
+### Scene Edit tab shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -115,7 +115,7 @@
 [//]: # "(| `v` | Focus Groups selector |)"
 [//]: # "(| `t` | Focus Tags selector |)"
 
-## Image page shortcuts
+## Image Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -127,29 +127,20 @@
 | `r {0-9} {0-9}` | Set rating (decimal - `00` for `10.0`) |
 | ``r ` `` | Unset rating (decimal) |
 
-### Image edit tab shortcuts
+### Image Edit tab shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `s s` | Save Scene |
 | `d d` | Delete Scene |
 
-## Lightbox shortcuts
-
-| Keyboard sequence | Action |
-|-------------------|--------|
-| `←` | Previous image |
-| `→` | Next image |
-| `Escape` | Close lightbox |
-| `d d` | Delete current image |
-
-## Groups page shortcuts
+## Groups Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `n` | New Group |
 
-## Group page shortcuts
+## Group Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -167,20 +158,20 @@
 [//]: # "Commented until implementation is dealt with"
 [//]: # "(| `u` | Focus Studio selector (in edit mode) |)"
 
-## Markers page shortcuts
+## Markers Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `p r` | Play random marker |
 
-## Performers page shortcuts
+## Performers Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `n` | New Performer |
 | `p r` | Open random Performer |
 
-## Performer page shortcuts
+## Performer Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -190,7 +181,7 @@
 | `f` | Toggle favourite |
 | `,` | Expand/Collapse Details |
 
-### Performer edit tab shortcuts
+### Performer Edit tab shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -198,13 +189,13 @@
 | `d d` | Delete Performer |
 | `Ctrl + v` | Paste Performer image |
 
-## Studios page shortcuts
+## Studios Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `n` | New Studio |
 
-## Studio page shortcuts
+## Studio Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
@@ -214,13 +205,13 @@
 | `,` | Expand/Collapse Details |
 | `Ctrl + v` | Paste Studio image |
 
-## Tags page shortcuts
+## Tags Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|
 | `n` | New Tag |
 
-## Tag page shortcuts
+## Tag Page shortcuts
 
 | Keyboard sequence | Action |
 |-------------------|--------|

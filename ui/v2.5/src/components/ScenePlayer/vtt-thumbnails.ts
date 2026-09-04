@@ -1,5 +1,9 @@
 import videojs, { VideoJsPlayer } from "video.js";
 import { WebVTT } from "videojs-vtt.js";
+import {
+  canApplyVttLoad,
+  isSuccessfulVttResponse,
+} from "./vtt-thumbnails-lifecycle";
 
 export interface IVTTThumbnailsOptions {
   /**
@@ -36,6 +40,8 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
 
   private vttData?: IVTTData[];
   private lastStyle?: IVTTStyle;
+  private request?: XMLHttpRequest;
+  private loadGeneration = 0;
 
   constructor(player: VideoJsPlayer, options: IVTTThumbnailsOptions) {
     super(player, options);
@@ -43,9 +49,11 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
     this.showTimestamp = options.showTimestamp ?? false;
 
     player.ready(() => {
+      if (player.isDisposed()) return;
       player.addClass("vjs-vtt-thumbnails");
       this.initializeThumbnails();
     });
+    player.one("dispose", () => this.resetPlugin());
   }
 
   src(source: string | null): void {
@@ -59,6 +67,9 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
   }
 
   private resetPlugin() {
+    this.loadGeneration += 1;
+    this.request?.abort();
+    delete this.request;
     this.showing = false;
 
     if (this.thumbnailHolder) {
@@ -97,11 +108,25 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
 
     const baseUrl = this.getBaseUrl();
     const url = this.getFullyQualifiedUrl(this.source, baseUrl);
+    const loadGeneration = ++this.loadGeneration;
 
-    this.getVttFile(url).then((data) => {
-      this.vttData = this.processVtt(data);
-      this.setupThumbnailElement();
-    });
+    this.getVttFile(url)
+      .then((data) => {
+        if (
+          !canApplyVttLoad(
+            loadGeneration,
+            this.loadGeneration,
+            this.player.isDisposed()
+          )
+        ) {
+          return;
+        }
+        this.vttData = this.processVtt(data);
+        this.setupThumbnailElement();
+      })
+      .catch(() => {
+        // Missing generated thumbnail VTT is optional and must degrade quietly.
+      });
   }
 
   /**
@@ -116,7 +141,7 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
       window.location.pathname,
     ]
       .join("")
-      .split(/([^/]*)$/gi)[0];
+      .split(/([^\/]*)$/gi)[0];
   }
 
   /**
@@ -125,19 +150,34 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
   private getVttFile(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const req = new XMLHttpRequest();
+      const finish = () => {
+        if (this.request === req) delete this.request;
+      };
 
       req.addEventListener("load", () => {
-        resolve(req.responseText);
+        finish();
+        if (isSuccessfulVttResponse(req.status)) {
+          resolve(req.responseText);
+        } else {
+          reject(new Error(`Thumbnail VTT request failed: HTTP ${req.status}`));
+        }
       });
       req.addEventListener("error", (e) => {
+        finish();
         reject(e);
       });
+      req.addEventListener("abort", () => {
+        finish();
+        reject(new Error("Thumbnail VTT request aborted"));
+      });
       req.open("GET", url);
+      this.request = req;
       req.send();
     });
   }
 
   private setupThumbnailElement() {
+    if (this.player.isDisposed()) return;
     const progressBar = this.player.$(".vjs-progress-control") as HTMLElement;
     if (!progressBar) return;
     this.progressBar = progressBar;
@@ -300,9 +340,9 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
     if (this.source === null) {
       baseSplit = this.getBaseUrl();
     } else if (this.source.indexOf("//") >= 0) {
-      baseSplit = this.source.split(/([^/]*)$/gi)[0];
+      baseSplit = this.source.split(/([^\/]*)$/gi)[0];
     } else {
-      baseSplit = this.getBaseUrl() + this.source.split(/([^/]*)$/gi)[0];
+      baseSplit = this.getBaseUrl() + this.source.split(/([^\/]*)$/gi)[0];
     }
 
     vttImageDef = this.getFullyQualifiedUrl(vttImageDef, baseSplit);
@@ -385,6 +425,7 @@ class VTTThumbnailsPlugin extends videojs.getPlugin("plugin") {
 // Register the plugin with video.js.
 videojs.registerPlugin("vttThumbnails", VTTThumbnailsPlugin);
 
+/* eslint-disable @typescript-eslint/naming-convention */
 declare module "video.js" {
   interface VideoJsPlayer {
     vttThumbnails: () => VTTThumbnailsPlugin;

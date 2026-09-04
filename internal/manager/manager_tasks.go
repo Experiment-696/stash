@@ -431,8 +431,6 @@ type StashBoxBatchTagInput struct {
 	StashBoxEndpoint *string `json:"stash_box_endpoint"`
 	// Fields to exclude when executing the tagging
 	ExcludeFields []string `json:"exclude_fields"`
-	// Collection fields to merge (add to existing) instead of overwriting when executing the tagging
-	MergeFields []string `json:"merge_fields"`
 	// Refresh items already tagged by StashBox if true. Only tag items with no StashBox tagging if false
 	Refresh bool `json:"refresh"`
 	// If batch adding studios or tags, should their parent entities also be created?
@@ -482,7 +480,6 @@ func (s *Manager) batchTagPerformersByIds(ctx context.Context, input StashBoxBat
 						performer:      performer,
 						box:            box,
 						excludedFields: input.ExcludeFields,
-						mergeFields:    input.MergeFields,
 					})
 				}
 			}
@@ -503,7 +500,6 @@ func (s *Manager) batchTagPerformersByNamesOrStashIds(input StashBoxBatchTagInpu
 				stashID:        &stashID,
 				box:            box,
 				excludedFields: input.ExcludeFields,
-				mergeFields:    input.MergeFields,
 			})
 		}
 	}
@@ -520,7 +516,6 @@ func (s *Manager) batchTagPerformersByNamesOrStashIds(input StashBoxBatchTagInpu
 				name:           &name,
 				box:            box,
 				excludedFields: input.ExcludeFields,
-				mergeFields:    input.MergeFields,
 			})
 		}
 	}
@@ -551,7 +546,6 @@ func (s *Manager) batchTagAllPerformers(ctx context.Context, input StashBoxBatch
 				performer:      performer,
 				box:            box,
 				excludedFields: input.ExcludeFields,
-				mergeFields:    input.MergeFields,
 			})
 		}
 		return nil

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/generated-storage-samples.schema.json",
+  "title": "Stash generated-storage benchmark raw samples",
+  "type": "array",
+  "minItems": 10,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["policy", "artifacts", "bytes", "unique_digests", "duplicate_bytes", "seconds"],
+    "properties": {
+      "policy": { "enum": ["eager", "lazy"] },
+      "artifacts": { "type": "integer", "minimum": 1 },
+      "bytes": { "type": "integer", "minimum": 1 },
+      "unique_digests": { "type": "integer", "minimum": 1 },
+      "duplicate_bytes": { "type": "integer", "minimum": 0 },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}

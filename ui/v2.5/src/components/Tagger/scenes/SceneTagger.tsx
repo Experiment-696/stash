@@ -83,7 +83,7 @@ const Scene: React.FC<{
       selected={selected}
       onSelectedChanged={onSelectedChanged}
     >
-      {searchResult?.results?.length ? (
+      {searchResult && searchResult.results?.length ? (
         <SceneSearchResults scenes={searchResult.results} target={scene} />
       ) : undefined}
     </TaggerScene>

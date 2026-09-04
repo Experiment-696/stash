@@ -20,14 +20,14 @@ const GalleryImage: React.FC<RouteComponentProps<IGalleryImageParams>> = ({
 }) => {
   const { id, index: indexStr } = match.params;
 
-  let index = parseInt(indexStr, 10);
-  if (Number.isNaN(index)) {
+  let index = parseInt(indexStr);
+  if (isNaN(index)) {
     index = 0;
   }
 
   const { data, loading, error } = useFindGalleryImageID(id, index);
 
-  if (Number.isNaN(index)) {
+  if (isNaN(index)) {
     return <Redirect to={`/galleries/${id}`} />;
   }
 

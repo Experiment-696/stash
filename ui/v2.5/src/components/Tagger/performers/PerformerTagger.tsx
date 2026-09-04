@@ -1,14 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Button,
-  Card,
-  Col,
-  Collapse,
-  Form,
-  InputGroup,
-  ProgressBar,
-  Row,
-} from "react-bootstrap";
+import { Button, Card, Form, InputGroup, ProgressBar } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import { HashLink } from "react-router-hash-link";
@@ -28,21 +19,10 @@ import { useConfigurationContext } from "src/hooks/Config";
 
 import StashSearchResult from "./StashSearchResult";
 import TaggerConfig, { ConfigButton } from "../TaggerConfig";
-import {
-  ITaggerConfig,
-  PERFORMER_FIELDS,
-  PERFORMER_MERGEABLE_FIELDS,
-} from "../constants";
+import { ITaggerConfig, PERFORMER_FIELDS } from "../constants";
 import PerformerModal from "../PerformerModal";
 import { useUpdatePerformer } from "../queries";
-import {
-  faCheck,
-  faPlus,
-  faStar,
-  faTags,
-  faTimes,
-} from "@fortawesome/free-solid-svg-icons";
-import { Icon } from "src/components/Shared/Icon";
+import { faStar, faTags } from "@fortawesome/free-solid-svg-icons";
 import { mergeStashIDs } from "src/utils/stashbox";
 import { separateNamesAndStashIds } from "src/utils/stashIds";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
@@ -56,19 +36,11 @@ type JobFragment = Pick<
 
 const CLASSNAME = "PerformerTagger";
 
-type FieldMode = "overwrite" | "merge" | "skip";
-
 interface IPerformerBatchUpdateModal {
   performers: GQL.PerformerDataFragment[];
   isIdle: boolean;
   selectedEndpoint: { endpoint: string; index: number };
-  excludedFields: string[];
-  onBatchUpdate: (
-    queryAll: boolean,
-    refresh: boolean,
-    excludedFields: string[],
-    mergeFields: string[]
-  ) => void;
+  onBatchUpdate: (queryAll: boolean, refresh: boolean) => void;
   close: () => void;
 }
 
@@ -76,36 +48,14 @@ const PerformerBatchUpdateModal: React.FC<IPerformerBatchUpdateModal> = ({
   performers,
   isIdle,
   selectedEndpoint,
-  excludedFields: initialExcludedFields,
   onBatchUpdate,
   close,
 }) => {
   const intl = useIntl();
 
   const [queryAll, setQueryAll] = useState(false);
+
   const [refresh, setRefresh] = useState(false);
-  const [showFieldSelect, setShowFieldSelect] = useState(false);
-
-  const [fieldModes, setFieldModes] = useState<Record<string, FieldMode>>(
-    () =>
-      Object.fromEntries(
-        PERFORMER_FIELDS.map((field) => [
-          field,
-          initialExcludedFields.includes(field) ? "skip" : "overwrite",
-        ])
-      ) as Record<string, FieldMode>
-  );
-
-  const excludedFieldsList = useMemo(
-    () => PERFORMER_FIELDS.filter((f) => fieldModes[f] === "skip"),
-    [fieldModes]
-  );
-
-  const mergeFieldsList = useMemo(
-    () => PERFORMER_FIELDS.filter((f) => fieldModes[f] === "merge"),
-    [fieldModes]
-  );
-
   const { data: allPerformers } = GQL.useFindPerformersQuery({
     variables: {
       performer_filter: {
@@ -137,52 +87,6 @@ const PerformerBatchUpdateModal: React.FC<IPerformerBatchUpdateModal> = ({
         ).length;
   }, [queryAll, refresh, performers, allPerformers, selectedEndpoint.endpoint]);
 
-  const cycleFieldMode = (field: string) => {
-    const isMergeable = PERFORMER_MERGEABLE_FIELDS.includes(field);
-    const current = fieldModes[field] ?? "overwrite";
-    let next: FieldMode;
-    if (isMergeable) {
-      const cycle: FieldMode[] = ["overwrite", "merge", "skip"];
-      next = cycle[(cycle.indexOf(current) + 1) % cycle.length];
-    } else {
-      next = current === "overwrite" ? "skip" : "overwrite";
-    }
-    setFieldModes({ ...fieldModes, [field]: next });
-  };
-
-  const getFieldIcon = (mode: FieldMode) => {
-    switch (mode) {
-      case "overwrite":
-        return faCheck;
-      case "merge":
-        return faPlus;
-      case "skip":
-        return faTimes;
-    }
-  };
-
-  const getFieldClass = (mode: FieldMode) => {
-    switch (mode) {
-      case "overwrite":
-        return "text-success";
-      case "merge":
-        return "text-info";
-      case "skip":
-        return "text-muted";
-    }
-  };
-
-  const getFieldLabel = (mode: FieldMode) => {
-    switch (mode) {
-      case "overwrite":
-        return intl.formatMessage({ id: "actions.overwrite" });
-      case "merge":
-        return intl.formatMessage({ id: "actions.merge" });
-      case "skip":
-        return intl.formatMessage({ id: "actions.skip" });
-    }
-  };
-
   return (
     <ModalComponent
       show
@@ -194,8 +98,7 @@ const PerformerBatchUpdateModal: React.FC<IPerformerBatchUpdateModal> = ({
         text: intl.formatMessage({
           id: "performer_tagger.update_performers",
         }),
-        onClick: () =>
-          onBatchUpdate(queryAll, refresh, excludedFieldsList, mergeFieldsList),
+        onClick: () => onBatchUpdate(queryAll, refresh),
       }}
       cancel={{
         text: intl.formatMessage({ id: "actions.cancel" }),
@@ -261,58 +164,6 @@ const PerformerBatchUpdateModal: React.FC<IPerformerBatchUpdateModal> = ({
         <Form.Text>
           <FormattedMessage id="performer_tagger.refreshing_will_update_the_data" />
         </Form.Text>
-      </Form.Group>
-      <Form.Group>
-        <Form.Label>
-          <h6>
-            <FormattedMessage id="performer_tagger.field_options" />
-          </h6>
-        </Form.Label>
-        <Form.Text className="mb-2 d-block">
-          <FormattedMessage id="performer_tagger.field_options_description" />
-        </Form.Text>
-        <Button
-          onClick={() => setShowFieldSelect(!showFieldSelect)}
-          className="mt-1"
-          size="sm"
-        >
-          <FormattedMessage id="performer_tagger.configure_fields" />
-        </Button>
-        <Collapse in={showFieldSelect}>
-          <div className="mt-2">
-            <Row>
-              {PERFORMER_FIELDS.map((field) => {
-                const mode = fieldModes[field] ?? "overwrite";
-                return (
-                  <Col xs={6} className="mb-1" key={field}>
-                    <Button
-                      onClick={() => cycleFieldMode(field)}
-                      variant="secondary"
-                      size="sm"
-                      className={getFieldClass(mode)}
-                      title={getFieldLabel(mode)}
-                    >
-                      <Icon icon={getFieldIcon(mode)} />
-                    </Button>
-                    <span className="ml-2">
-                      <FormattedMessage id={field} />
-                    </span>
-                  </Col>
-                );
-              })}
-            </Row>
-            <div className="mt-2 small text-muted">
-              <Icon icon={faCheck} className="text-success" />{" "}
-              <FormattedMessage id="actions.overwrite" />
-              {" | "}
-              <Icon icon={faPlus} className="text-info" />{" "}
-              <FormattedMessage id="actions.merge" />
-              {" | "}
-              <Icon icon={faTimes} className="text-muted" />{" "}
-              <FormattedMessage id="actions.skip" />
-            </div>
-          </div>
-        </Collapse>
       </Form.Group>
       <b>
         <FormattedMessage
@@ -389,12 +240,7 @@ interface IPerformerTaggerListProps {
   isIdle: boolean;
   config: ITaggerConfig;
   onBatchAdd: (performerInput: string) => void;
-  onBatchUpdate: (
-    ids: string[] | undefined,
-    refresh: boolean,
-    excludedFields: string[],
-    mergeFields: string[]
-  ) => void;
+  onBatchUpdate: (ids: string[] | undefined, refresh: boolean) => void;
 }
 
 const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
@@ -487,18 +333,8 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
     setShowBatchAdd(false);
   }
 
-  const handleBatchUpdate = (
-    queryAll: boolean,
-    refresh: boolean,
-    excludedFields: string[],
-    mergeFields: string[]
-  ) => {
-    onBatchUpdate(
-      !queryAll ? performers.map((p) => p.id) : undefined,
-      refresh,
-      excludedFields,
-      mergeFields
-    );
+  const handleBatchUpdate = (queryAll: boolean, refresh: boolean) => {
+    onBatchUpdate(!queryAll ? performers.map((p) => p.id) : undefined, refresh);
     setShowBatchUpdate(false);
   };
 
@@ -513,7 +349,6 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
   };
 
   // clear tagged performers when source is changed
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only resetting when selectedEndpoint changes
   useEffect(() => {
     setTaggedPerformers({});
     setSearchResults({});
@@ -522,11 +357,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
 
   const updatePerformer = useUpdatePerformer();
 
-  function handleSaveError(
-    performerID: string,
-    _name: string,
-    message: string
-  ) {
+  function handleSaveError(performerID: string, name: string, message: string) {
     setError({
       ...error,
       [performerID]: {
@@ -579,7 +410,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
         return s.endpoint === selectedEndpoint.endpoint;
       });
 
-      let mainContent: JSX.Element | undefined;
+      let mainContent;
       if (!isTagged && stashID !== undefined) {
         mainContent = (
           <div className="text-left">
@@ -638,7 +469,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
         );
       }
 
-      let subContent: JSX.Element | undefined;
+      let subContent;
       if (stashID !== undefined) {
         const base = stashID.endpoint.match(/https?:\/\/.*?\//)?.[0];
         const link = base ? (
@@ -700,7 +531,7 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
         );
       }
 
-      let searchResult: JSX.Element | undefined;
+      let searchResult;
       if (searchResults[performer.id]?.length > 0 && !isTagged) {
         searchResult = (
           <StashSearchResult
@@ -765,7 +596,6 @@ const PerformerTaggerList: React.FC<IPerformerTaggerListProps> = ({
           isIdle={isIdle}
           selectedEndpoint={selectedEndpoint}
           performers={performers}
-          excludedFields={config.excludedPerformerFields ?? []}
           onBatchUpdate={handleBatchUpdate}
         />
       )}
@@ -838,16 +668,13 @@ export const PerformerTagger: React.FC<ITaggerProps> = ({ performers }) => {
   const selectedEndpoint =
     stashConfig?.general.stashBoxes[selectedEndpointIndex];
 
-  const selectedEndpointInput = useMemo(() => {
-    if (!selectedEndpoint) {
-      return;
-    }
-
-    return {
+  const selectedEndpointInput = useMemo(
+    () => ({
       endpoint: selectedEndpoint.endpoint,
       index: selectedEndpointIndex,
-    };
-  }, [selectedEndpoint, selectedEndpointIndex]);
+    }),
+    [selectedEndpoint, selectedEndpointIndex]
+  );
 
   if (!config) return <LoadingIndicator />;
 
@@ -874,19 +701,13 @@ export const PerformerTagger: React.FC<ITaggerProps> = ({ performers }) => {
     }
   }
 
-  async function batchUpdate(
-    ids: string[] | undefined,
-    refresh: boolean,
-    excludedFields: string[],
-    mergeFields: string[]
-  ) {
+  async function batchUpdate(ids: string[] | undefined, refresh: boolean) {
     if (config && selectedEndpoint) {
       const ret = await mutateStashBoxBatchPerformerTag({
         ids: ids,
         endpoint: selectedEndpointIndex,
         refresh,
-        exclude_fields: excludedFields,
-        merge_fields: mergeFields.length > 0 ? mergeFields : undefined,
+        exclude_fields: config.excludedPerformerFields ?? [],
         createParent: false,
       });
 
@@ -934,7 +755,7 @@ export const PerformerTagger: React.FC<ITaggerProps> = ({ performers }) => {
     }
   }
 
-  if (selectedEndpointIndex === -1 || !selectedEndpointInput) {
+  if (selectedEndpointIndex === -1 || !selectedEndpoint) {
     return (
       <div className="my-4">
         <h3 className="text-center mt-4">

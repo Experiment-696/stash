@@ -1,3 +1,5 @@
+/* eslint-disable no-param-reassign, jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
+
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Button, Card, Form, Table } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";

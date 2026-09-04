@@ -109,7 +109,7 @@ export const ImageFileInfoPanel: React.FC<IImageFileInfoPanelProps> = (
   >();
 
   if (props.image.visual_files.length === 0) {
-    return null;
+    return <></>;
   }
 
   if (props.image.visual_files.length === 1) {

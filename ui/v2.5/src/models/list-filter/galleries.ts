@@ -30,10 +30,6 @@ const sortByOptions = ["date", ...MediaSortByOptions]
   .map(ListFilterOptions.createSortBy)
   .concat([
     {
-      messageID: "performer_age",
-      value: "performer_age",
-    },
-    {
       messageID: "image_count",
       value: "images_count",
     },

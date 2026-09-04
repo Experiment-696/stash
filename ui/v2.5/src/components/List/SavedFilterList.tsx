@@ -11,10 +11,10 @@ import {
   Tooltip,
 } from "react-bootstrap";
 import {
-  useConfigureUISetting,
   useFindSavedFilters,
   useSavedFilterDestroy,
   useSaveFilter,
+  useSetDefaultFilter,
 } from "src/core/StashService";
 import { useToast } from "src/hooks/Toast";
 import { ListFilterModel } from "src/models/list-filter/filter";
@@ -268,7 +268,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
 
   const saveFilter = useSaveFilter();
   const [destroyFilter] = useSavedFilterDestroy();
-  const [saveUISetting] = useConfigureUISetting();
+  const setDefaultFilter = useSetDefaultFilter();
 
   const savedFilters = data?.findSavedFilters ?? [];
 
@@ -342,17 +342,7 @@ export const SavedFilterList: React.FC<ISavedFilterListProps> = ({
     try {
       setSaving(true);
 
-      await saveUISetting({
-        variables: {
-          key: `defaultFilters.${view.toString()}`,
-          value: {
-            mode: filter.mode,
-            find_filter: filterCopy.makeFindFilter(),
-            object_filter: filterCopy.makeSavedFilter(),
-            ui_options: filterCopy.makeSavedUIOptions(),
-          },
-        },
-      });
+      await setDefaultFilter(filterCopy);
 
       Toast.success(
         intl.formatMessage({
@@ -629,7 +619,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
 
   const saveFilter = useSaveFilter();
   const [destroyFilter] = useSavedFilterDestroy();
-  const [saveUISetting] = useConfigureUISetting();
+  const setDefaultFilter = useSetDefaultFilter();
 
   const filteredFilters = useMemo(() => {
     const savedFilters = data?.findSavedFilters ?? [];
@@ -642,7 +632,6 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
   }, [data?.findSavedFilters, filterName]);
 
   // handle when filter is changed to de-select the current filter
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally only want to trigger when filter changes
   useEffect(() => {
     // HACK - first change will be from setting the filter
     // second change is likely from somewhere else
@@ -725,17 +714,7 @@ export const SidebarSavedFilterList: React.FC<ISavedFilterListProps> = ({
     try {
       setSaving(true);
 
-      await saveUISetting({
-        variables: {
-          key: `defaultFilters.${view.toString()}`,
-          value: {
-            mode: filter.mode,
-            find_filter: filterCopy.makeFindFilter(),
-            object_filter: filterCopy.makeSavedFilter(),
-            ui_options: filterCopy.makeSavedUIOptions(),
-          },
-        },
-      });
+      await setDefaultFilter(filterCopy);
 
       Toast.success(
         intl.formatMessage({

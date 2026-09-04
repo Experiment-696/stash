@@ -161,13 +161,13 @@ const Task: React.FC<IJob> = ({ job }) => {
     ) {
       return (
         <div>
-          {/* XXbiome-ignore-start react/no-array-index-key: intentional */}
+          {/* eslint-disable react/no-array-index-key */}
           {(job.subTasks ?? []).map((t, i) => (
             <div className="job-subtask" key={i}>
               {t}
             </div>
           ))}
-          {/* XXbiome-ignore-end react/no-array-index-key: intentional */}
+          {/* eslint-enable react/no-array-index-key */}
         </div>
       );
     }

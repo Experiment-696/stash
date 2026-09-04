@@ -42,7 +42,7 @@ func (e *InvalidTagHierarchyError) Error() string {
 
 // EnsureTagNameUnique returns an error if the tag name provided
 // is used as a name or alias of another existing tag.
-func EnsureTagNameUnique(ctx context.Context, id int, name string, qb models.TagNameFinder) error {
+func EnsureTagNameUnique(ctx context.Context, id int, name string, qb models.TagQueryer) error {
 	// ensure name is unique
 	sameNameTag, err := ByName(ctx, qb, name)
 	if err != nil {
@@ -71,7 +71,7 @@ func EnsureTagNameUnique(ctx context.Context, id int, name string, qb models.Tag
 	return nil
 }
 
-func EnsureAliasesUnique(ctx context.Context, id int, aliases []string, qb models.TagNameFinder) error {
+func EnsureAliasesUnique(ctx context.Context, id int, aliases []string, qb models.TagQueryer) error {
 	for _, a := range aliases {
 		if err := EnsureTagNameUnique(ctx, id, a, qb); err != nil {
 			return err

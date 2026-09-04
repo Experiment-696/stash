@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/phash-samples.schema.json",
+  "title": "Stash perceptual-hash benchmark raw samples",
+  "type": "array",
+  "minItems": 5,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["algorithm", "width", "height", "seconds", "hash"],
+    "properties": {
+      "algorithm": { "const": "image_phash" },
+      "width": { "type": "integer", "minimum": 32, "maximum": 8192 },
+      "height": { "type": "integer", "minimum": 32, "maximum": 8192 },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 },
+      "hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+    }
+  }
+}

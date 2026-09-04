@@ -1,0 +1,152 @@
+type CamModelSite {
+  id: ID!
+  name: String!
+  baseURL: String
+  externalKey: String
+  enabled: Boolean!
+}
+
+type CamModelAccountProfile {
+  id: ID!
+  site: CamModelSite!
+  handle: String!
+  status: String!
+  validFrom: Timestamp
+  validTo: Timestamp
+  profileURL: String
+  externalAccountID: String
+  firstSeenAt: Timestamp
+  lastSeenAt: Timestamp
+  source: String!
+  confidence: Float
+}
+
+type CamModelEvidence {
+  id: ID!
+  modelID: ID!
+  accountID: ID
+  provider: String!
+  evidenceKey: String!
+  providerRecordID: String
+  sourceURL: String
+  observedAt: Timestamp!
+  payloadJSON: String!
+  confidence: Float
+  reviewState: String!
+  reviewedBy: ID
+  reviewedAt: Timestamp
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+}
+
+type CamModelSocialProfile {
+  id: ID!
+  modelID: ID!
+  platform: String!
+  icon: String
+  handle: String
+  profileURL: String!
+  status: String!
+  validFrom: Timestamp
+  validTo: Timestamp
+  source: String!
+  confidence: Float
+  provenance: String
+}
+
+input CamModelSocialProfileCreateInput {
+  modelID: ID!
+  platform: String!
+  icon: String
+  handle: String
+  profileURL: String!
+  validFrom: Timestamp
+  source: String!
+  confidence: Float
+  provenance: String
+}
+
+type CamModelProfile {
+  id: ID!
+  displayName: String!
+  image: String
+  notes: String
+  performerID: ID
+  status: String!
+  favorite: Boolean!
+  rating100: Int
+  accounts: [CamModelAccountProfile!]!
+  evidence: [CamModelEvidence!]!
+  socialProfiles: [CamModelSocialProfile!]!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+}
+
+input CamModelAccountCreateInput {
+  siteID: ID!
+  handle: String!
+  profileURL: String
+  externalAccountID: String
+  firstSeenAt: Timestamp
+  lastSeenAt: Timestamp
+  validFrom: Timestamp
+  confidence: Float
+}
+
+input CamModelProfileCreateInput {
+  displayName: String!
+  image: String
+  notes: String
+  performerID: ID
+  status: String!
+  accounts: [CamModelAccountCreateInput!]!
+}
+
+input CamModelProfileUpdateInput {
+  id: ID!
+  displayName: String!
+  image: String
+  notes: String
+  performerID: ID
+  status: String!
+}
+
+input CamModelAccountAddInput {
+  modelID: ID!
+  account: CamModelAccountCreateInput!
+}
+
+input CamModelEvidenceCreateInput {
+  modelID: ID!
+  accountID: ID
+  provider: String!
+  evidenceKey: String!
+  providerRecordID: String
+  sourceURL: String
+  observedAt: Timestamp!
+  payloadJSON: String!
+  confidence: Float
+}
+
+type CamModelEvidenceIngestResult {
+  status: String!
+  evidence: CamModelEvidence!
+}
+
+extend type Query {
+  camModelProfiles(favoritesOnly: Boolean! = false): [CamModelProfile!]!
+  camModelProfile(id: ID!): CamModelProfile
+  camModelSites: [CamModelSite!]!
+}
+
+extend type Mutation {
+  camModelSetUserState(id: ID!, favorite: Boolean!, rating100: Int): CamModelProfile!
+  camModelProfileCreate(input: CamModelProfileCreateInput!): CamModelProfile!
+  camModelProfileUpdate(input: CamModelProfileUpdateInput!): CamModelProfile!
+  camModelAccountAdd(input: CamModelAccountAddInput!): CamModelProfile!
+  camModelAccountRetire(id: ID!, validTo: Timestamp!): CamModelProfile!
+  camModelEvidenceCreate(input: CamModelEvidenceCreateInput!): CamModelEvidenceIngestResult!
+  camModelEvidenceReview(id: ID!, state: String!): CamModelEvidence!
+  camModelSocialProfileCreate(input: CamModelSocialProfileCreateInput!): CamModelProfile!
+  camModelSocialProfileRetire(id: ID!, validTo: Timestamp!): CamModelProfile!
+}

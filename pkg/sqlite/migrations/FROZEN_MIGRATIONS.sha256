@@ -1,0 +1,14 @@
+# Applied staging migrations are immutable. Add a new forward migration; never
+# update a checksum here to legitimize editing an already-applied migration.
+50A416DCB4F1938A1F97420B24D043A35371C36213E07E1BE97C7BDABC730ED7  86_multiuser_foundation.up.sql
+074EBA2757CA9CC6123C9AEC20E17D753D769F016543F8F0A13A3739D722BF21  87_multiuser_personal_state_repair.up.sql
+030FC036E6E66266499A5C67BC01A7EFACD38DA7D1B2778E9DE1897C0CEE79EB  89_cam_shows_foundation.up.sql
+B7A08A9F1060097EAB2BAB488AB62A481EEBD70D4E39473D95C1924CDB461E1C  90_cam_show_classification_rules.up.sql
+277ACF92B8F4622E68F82754F46076662C3076A40BDBB8938D5F19D593C1E516  91_cam_model_profile_provenance.up.sql
+9528A1D5BD71BB53F08E5178ADCA266697D0348358DDC1DA1AC9E988C0FF4CE3  92_cam_show_domain_correction.up.sql
+E3B327939B8820F0BDBF4C8DFF8018644B602AA018A24C1AC9258EE9FBD5E21A  93_cam_show_hour_precision.up.sql
+BB2AFF2B7AB48AEAEA928F8A516C148CF90E0D1F394378276E80B26B97F9CB79  94_completed_recording_import_audit.up.sql
+
+# v87 is intentionally forward-only. Stash's migration task restores its
+# pre-migration database backup on failure; it must not attempt a destructive
+# schema downgrade that could discard newly written per-user state.

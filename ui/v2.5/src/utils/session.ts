@@ -1,7 +1,11 @@
 import Cookies from "universal-cookie";
 
 const isLoggedIn = () => {
-  return new Cookies().get("session") !== undefined;
+  const cookies = new Cookies();
+  return (
+    cookies.get("stash_csrf_v2") !== undefined ||
+    cookies.get("session") !== undefined
+  );
 };
 
 const SessionUtils = {

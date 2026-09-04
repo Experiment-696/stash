@@ -211,7 +211,6 @@ type header struct {
 
 type scraperDriverOptions struct {
 	UseCDP  bool             `yaml:"useCDP"`
-	UseSurf bool             `yaml:"useSurf"`
 	Sleep   int              `yaml:"sleep"`
 	Clicks  []*clickOptions  `yaml:"clicks"`
 	Cookies []*cookieOptions `yaml:"cookies"`

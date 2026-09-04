@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
@@ -26,6 +25,20 @@ var ErrOverriddenConfig = errors.New("cannot set overridden value")
 func (r *mutationResolver) Setup(ctx context.Context, input manager.SetupInput) (bool, error) {
 	err := manager.GetInstance().Setup(ctx, input)
 	return err == nil, err
+}
+
+func (r *mutationResolver) BootstrapConfigureUI(ctx context.Context, lastNoteSeen string) (bool, error) {
+	c := config.GetInstance()
+	ui := c.GetUIConfiguration()
+	if ui == nil {
+		ui = make(map[string]interface{})
+	}
+	ui["lastNoteSeen"] = lastNoteSeen
+	c.SetUIConfiguration(ui)
+	if err := c.Write(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (r *mutationResolver) DownloadFFMpeg(ctx context.Context) (string, error) {
@@ -101,7 +114,6 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 				}
 			}
 			if isNew {
-				s.Path = strings.Trim(s.Path, "\"")
 				s.Path = filepath.Clean(s.Path)
 
 				// if it exists, it must be directory
@@ -291,17 +303,6 @@ func (r *mutationResolver) ConfigureGeneral(ctx context.Context, input ConfigGen
 	r.setConfigBool(config.PreviewAudio, input.PreviewAudio)
 	r.setConfigInt(config.PreviewSegments, input.PreviewSegments)
 	r.setConfigFloat(config.PreviewSegmentDuration, input.PreviewSegmentDuration)
-	// Validate both marker-preview durations before applying either: 0 disables
-	// the ceiling, so a negative max is rejected rather than silently treated as
-	// disabled; the default is a fallback length and must be positive.
-	if input.MaxMarkerPreviewDuration != nil && *input.MaxMarkerPreviewDuration < 0 {
-		return makeConfigGeneralResult(), errors.New("maxMarkerPreviewDuration must be 0 (disabled) or a positive value")
-	}
-	if input.DefaultMarkerPreviewDuration != nil && *input.DefaultMarkerPreviewDuration <= 0 {
-		return makeConfigGeneralResult(), errors.New("defaultMarkerPreviewDuration must be a positive value")
-	}
-	r.setConfigInt(config.MaxMarkerPreviewDuration, input.MaxMarkerPreviewDuration)
-	r.setConfigInt(config.DefaultMarkerPreviewDuration, input.DefaultMarkerPreviewDuration)
 	r.setConfigString(config.PreviewExcludeStart, input.PreviewExcludeStart)
 	r.setConfigString(config.PreviewExcludeEnd, input.PreviewExcludeEnd)
 	if input.PreviewPreset != nil {

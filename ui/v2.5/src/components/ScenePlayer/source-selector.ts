@@ -110,17 +110,13 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
   // don't auto play next source if user manually selected a source
   private manuallySelected = false;
 
-  // returns whether playback is currently intended (autostart or already playing).
-  // used to avoid auto-starting playback during source resolution/failover.
-  private shouldAutoplay: () => boolean = () => false;
-
   constructor(player: VideoJsPlayer) {
     super(player);
 
     this.menu = new SourceMenuButton(player);
 
     this.menu.on("sourceselected", (_, source: ISource) => {
-      this.selectedIndex = this.sources.indexOf(source);
+      this.selectedIndex = this.sources.findIndex((src) => src === source);
       if (this.selectedIndex === -1) return;
 
       this.manuallySelected = true;
@@ -158,9 +154,7 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
         if (currentSrc === null) return;
 
         if (currentSrc.includes(".m3u8") || currentSrc.includes(".mpd")) {
-          if (this.shouldAutoplay()) {
-            player.play();
-          }
+          player.play();
         } else {
           player.error(MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED);
           return;
@@ -208,9 +202,7 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
         player.one("canplay", () => {
           player.currentTime(currentTime);
         });
-        if (this.shouldAutoplay()) {
-          player.play();
-        }
+        player.play();
       } else {
         console.log("No more sources in playlist");
       }
@@ -234,10 +226,6 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
     this.player.src(sources[0]);
   }
 
-  setShouldAutoplay(fn: () => boolean) {
-    this.shouldAutoplay = fn;
-  }
-
   get textTracks(): HTMLTrackElement[] {
     return [...this.cleanupTextTracks, ...this.manualTextTracks];
   }
@@ -255,11 +243,11 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
   removeTextTrack(track: HTMLTrackElement) {
     this.player.removeRemoteTextTrack(track);
     let index = this.manualTextTracks.indexOf(track);
-    if (index !== -1) {
+    if (index != -1) {
       this.manualTextTracks.splice(index, 1);
     }
     index = this.cleanupTextTracks.indexOf(track);
-    if (index !== -1) {
+    if (index != -1) {
       this.cleanupTextTracks.splice(index, 1);
     }
   }
@@ -269,12 +257,13 @@ class SourceSelectorPlugin extends videojs.getPlugin("plugin") {
 videojs.registerComponent("SourceMenuButton", SourceMenuButton);
 videojs.registerPlugin("sourceSelector", SourceSelectorPlugin);
 
+/* eslint-disable @typescript-eslint/naming-convention */
 declare module "video.js" {
   interface VideoJsPlayer {
     sourceSelector: () => SourceSelectorPlugin;
   }
   interface VideoJsPlayerPluginOptions {
-    sourceSelector?: object;
+    sourceSelector?: {};
   }
 }
 

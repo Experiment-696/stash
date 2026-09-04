@@ -106,13 +106,13 @@ func (qb *performerFilterHandler) handle(ctx context.Context, f *filterBuilder) 
 		return
 	}
 
-	f.handleCriterion(ctx, qb.criterionHandler())
-
 	sf := filter.SubFilter()
 	if sf != nil {
 		sub := &performerFilterHandler{sf}
 		handleSubFilter(ctx, sub, f, filter.OperatorFilter)
 	}
+
+	f.handleCriterion(ctx, qb.criterionHandler())
 }
 
 func (qb *performerFilterHandler) criterionHandler() criterionHandler {
@@ -188,7 +188,7 @@ func (qb *performerFilterHandler) criterionHandler() criterionHandler {
 		intCriterionHandler(filter.Weight, tableName+".weight", nil),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if filter.StashID != nil {
-				performerRepository.stashIDs.leftJoin(f, "performer_stash_ids", "performers.id")
+				performerRepository.stashIDs.join(f, "performer_stash_ids", "performers.id")
 				stringCriterionHandler(filter.StashID, "performer_stash_ids.stash_id")(ctx, f)
 			}
 		}),
@@ -333,7 +333,7 @@ func (qb *performerFilterHandler) performerIsMissingCriterionHandler(isMissing *
 		if isMissing != nil && *isMissing != "" {
 			switch *isMissing {
 			case "url":
-				performersURLsTableMgr.leftJoin(f, "", "performers.id")
+				performersURLsTableMgr.join(f, "", "performers.id")
 				f.addWhere("performer_urls.url IS NULL")
 			case "scenes": // Deprecated: use `scene_count == 0` filter instead
 				f.addLeftJoin(performersScenesTable, "scenes_join", "scenes_join.performer_id = performers.id")
@@ -341,10 +341,10 @@ func (qb *performerFilterHandler) performerIsMissingCriterionHandler(isMissing *
 			case "image":
 				f.addWhere("performers.image_blob IS NULL")
 			case "stash_id":
-				performersStashIDsTableMgr.leftJoin(f, "performer_stash_ids", "performers.id")
+				performersStashIDsTableMgr.join(f, "performer_stash_ids", "performers.id")
 				f.addWhere("performer_stash_ids.performer_id IS NULL")
 			case "aliases":
-				performersAliasesTableMgr.leftJoin(f, "", "performers.id")
+				performersAliasesTableMgr.join(f, "", "performers.id")
 				f.addWhere("performer_aliases.alias IS NULL")
 			case "tags":
 				f.addLeftJoin(performersTagsTable, "tags_join", "tags_join.performer_id = performers.id")
@@ -383,8 +383,8 @@ func (qb *performerFilterHandler) urlsCriterionHandler(url *models.StringCriteri
 		primaryFK:    performerIDColumn,
 		joinTable:    performerURLsTable,
 		stringColumn: performerURLColumn,
-		addJoinTable: func(f *filterBuilder, joinType joinType) {
-			performersURLsTableMgr.join(f, joinType, "", "performers.id")
+		addJoinTable: func(f *filterBuilder) {
+			performersURLsTableMgr.join(f, "", "performers.id")
 		},
 	}
 
@@ -397,8 +397,8 @@ func (qb *performerFilterHandler) aliasCriterionHandler(alias *models.StringCrit
 		primaryFK:    performerIDColumn,
 		joinTable:    performersAliasesTable,
 		stringColumn: performerAliasColumn,
-		addJoinTable: func(f *filterBuilder, joinType joinType) {
-			performersAliasesTableMgr.join(f, joinType, "", "performers.id")
+		addJoinTable: func(f *filterBuilder) {
+			performersAliasesTableMgr.join(f, "", "performers.id")
 		},
 	}
 
@@ -503,6 +503,21 @@ var selectPerformerOCountSQL = utils.StrFormat(
 	},
 )
 
+func selectPerformerOCountForContext(ctx context.Context) string {
+	userID, ok := personalActivityUserID(ctx)
+	if !ok {
+		return selectPerformerOCountSQL
+	}
+	uid := strconv.FormatInt(userID, 10)
+	return "SELECT SUM(o_counter) FROM (" +
+		"SELECT COALESCE(SUM(a.o_count), 0) AS o_counter FROM performers_images s " +
+		"LEFT JOIN user_image_activity a ON a.image_id = s.image_id AND a.user_id = " + uid + " " +
+		"WHERE s.performer_id = performers.id UNION ALL " +
+		"SELECT COUNT(h.id) AS o_counter FROM performers_scenes s " +
+		"LEFT JOIN user_scene_history h ON h.scene_id = s.scene_id AND h.user_id = " + uid + " AND h.kind = 'O' " +
+		"WHERE s.performer_id = performers.id)"
+}
+
 // used for sorting and filtering play count on performer view count
 var selectPerformerPlayCountSQL = utils.StrFormat(
 	"SELECT COUNT(DISTINCT {view_date}) FROM ("+
@@ -528,7 +543,7 @@ func (qb *performerFilterHandler) oCounterCriterionHandler(count *models.IntCrit
 			return
 		}
 
-		lhs := "(" + selectPerformerOCountSQL + ")"
+		lhs := "(" + selectPerformerOCountForContext(ctx) + ")"
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)

@@ -5,7 +5,7 @@ declare module "*.md" {
   export default src;
 }
 
-// XXbiome-ignore @typescript-eslint/naming-convention: intentional
+// eslint-disable-next-line @typescript-eslint/naming-convention
 interface ImportMetaEnv {
   readonly VITE_APP_GITHASH?: string;
   readonly VITE_APP_STASH_VERSION?: string;

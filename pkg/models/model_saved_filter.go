@@ -63,6 +63,7 @@ func (e FilterMode) MarshalGQL(w io.Writer) {
 
 type SavedFilter struct {
 	ID           int                    `db:"id" json:"id"`
+	UserID       *int64                 `db:"user_id" json:"-"`
 	Mode         FilterMode             `db:"mode" json:"mode"`
 	Name         string                 `db:"name" json:"name"`
 	FindFilter   *FindFilterType        `json:"find_filter"`

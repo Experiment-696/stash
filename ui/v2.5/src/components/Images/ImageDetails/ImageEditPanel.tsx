@@ -39,13 +39,13 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 
 interface IProps {
   image: GQL.ImageDataFragment;
   isVisible: boolean;
   onSubmit: (input: GQL.ImageUpdateInput) => Promise<void>;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 export const ImageEditPanel: React.FC<IProps> = ({
@@ -169,7 +169,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
         }
       });
       Mousetrap.bind("d d", () => {
-        onDelete();
+        onDelete?.();
       });
 
       return () => {
@@ -200,12 +200,12 @@ export const ImageEditPanel: React.FC<IProps> = ({
   }
 
   async function onScrapeClicked(s: GQL.ScraperSourceInput) {
-    if (!image?.id) return;
+    if (!image || !image.id) return;
 
     setIsLoading(true);
     try {
       const result = await queryScrapeImage(s.scraper_id!, image.id);
-      if (!result.data?.scrapeSingleImage?.length) {
+      if (!result.data || !result.data.scrapeSingleImage?.length) {
         Toast.success("No images found");
         return;
       }
@@ -304,7 +304,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
     setIsLoading(true);
     try {
       const result = await queryScrapeImageURL(url);
-      if (!result.data?.scrapeImageURL) {
+      if (!result || !result.data || !result.data.scrapeImageURL) {
         return;
       }
       setScrapedImage(result.data.scrapeImageURL);
@@ -383,7 +383,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
     const date = (() => {
       try {
         return schema.validateSyncAt("date", formik.values);
-      } catch (_e) {
+      } catch (e) {
         return undefined;
       }
     })();
@@ -469,13 +469,15 @@ export const ImageEditPanel: React.FC<IProps> = ({
             >
               <FormattedMessage id="actions.save" />
             </Button>
-            <Button
-              className="edit-button"
-              variant="danger"
-              onClick={() => onDelete()}
-            >
-              <FormattedMessage id="actions.delete" />
-            </Button>
+            {onDelete && (
+              <Button
+                className="edit-button"
+                variant="danger"
+                onClick={() => onDelete()}
+              >
+                <FormattedMessage id="actions.delete" />
+              </Button>
+            )}
           </div>
           <div className="ml-auto text-right d-flex">
             {!isNew && (

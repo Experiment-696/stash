@@ -1,4 +1,4 @@
-/* XXbiome-ignore no-console */
+/* eslint-disable no-console */
 
 // This optional code is used to register a service worker.
 // register() is not called by default.
@@ -31,6 +31,7 @@ function registerValidSW(swUrl: string, config?: IConfig) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      // eslint-disable-next-line no-param-reassign
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -48,7 +49,7 @@ function registerValidSW(swUrl: string, config?: IConfig) {
               );
 
               // Execute callback
-              if (config?.onUpdate) {
+              if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
             } else {
@@ -58,7 +59,7 @@ function registerValidSW(swUrl: string, config?: IConfig) {
               console.log("Content is cached for offline use.");
 
               // Execute callback
-              if (config?.onSuccess) {
+              if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
             }

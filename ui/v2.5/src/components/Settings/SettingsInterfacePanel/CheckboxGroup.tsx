@@ -4,7 +4,8 @@ import { PatchComponent } from "src/patch";
 
 interface IItem {
   id: string;
-  headingID: string;
+  headingID?: string;
+  heading?: string;
 }
 
 interface ICheckboxGroupProps {
@@ -23,11 +24,12 @@ export const CheckboxGroup: React.FC<ICheckboxGroupProps> = PatchComponent(
 
     return (
       <>
-        {items.map(({ id, headingID }) => (
+        {items.map(({ id, headingID, heading }) => (
           <BooleanSetting
             key={id}
             id={generateId(id)}
             headingID={headingID}
+            heading={heading}
             checked={checkedIds.includes(id)}
             onChange={(v) => {
               if (v) {

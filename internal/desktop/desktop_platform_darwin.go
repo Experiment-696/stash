@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	gosxnotifier "github.com/feederbox826/gosx-notifier"
+	gosxnotifier "github.com/kermieisinthehouse/gosx-notifier"
 	"github.com/stashapp/stash/pkg/logger"
 )
 

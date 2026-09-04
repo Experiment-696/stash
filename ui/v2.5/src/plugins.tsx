@@ -15,12 +15,12 @@ type PluginList = NonNullable<Required<PluginsQuery["plugins"]>>;
 function sortPlugins(plugins: PluginList) {
   type Node = { id: string; afters: string[] };
 
-  const nodes: Record<string, Node> = {};
-  const sorted: PluginList = [];
-  const visited: Record<string, boolean> = {};
+  let nodes: Record<string, Node> = {};
+  let sorted: PluginList = [];
+  let visited: Record<string, boolean> = {};
 
   plugins.forEach((v) => {
-    const from = v.id;
+    let from = v.id;
 
     if (!nodes[from]) nodes[from] = { id: from, afters: [] };
 
@@ -31,14 +31,14 @@ function sortPlugins(plugins: PluginList) {
   });
 
   function visit(idstr: string, ancestors: string[] = []) {
-    const node = nodes[idstr];
+    let node = nodes[idstr];
     const { id } = node;
 
     if (visited[idstr]) return;
 
     ancestors.push(id);
     visited[idstr] = true;
-    node.afters.forEach((afterID) => {
+    node.afters.forEach(function (afterID) {
       if (ancestors.indexOf(afterID) >= 0)
         throw new Error("closed chain : " + afterID + " is in " + id);
       visit(afterID.toString(), ancestors.slice());
@@ -60,12 +60,12 @@ function sortPlugins(plugins: PluginList) {
 // load all plugins and their dependencies
 // returns true when all plugins are loaded, regardess of success or failure
 // if disableCustomizations is true, skip loading plugins entirely
-function useLoadPlugins(disableCustomizations?: boolean) {
+function useLoadPlugins(disableCustomizations?: boolean, skip = false) {
   const {
     data: plugins,
     loading: pluginsLoading,
     error: pluginsError,
-  } = usePlugins();
+  } = usePlugins(skip);
 
   const sortedPlugins = useMemoOnce(() => {
     return [
@@ -85,7 +85,8 @@ function useLoadPlugins(disableCustomizations?: boolean) {
       uniq(
         sortedPlugins
           ?.filter((plugin) => plugin.enabled && plugin.paths.javascript)
-          .flatMap((plugin) => plugin.paths.javascript!) ?? []
+          .map((plugin) => plugin.paths.javascript!)
+          .flat() ?? []
       ),
       !!sortedPlugins && !pluginsLoading && !pluginsError,
     ];
@@ -99,7 +100,8 @@ function useLoadPlugins(disableCustomizations?: boolean) {
       uniq(
         sortedPlugins
           ?.filter((plugin) => plugin.enabled && plugin.paths.css)
-          .flatMap((plugin) => plugin.paths.css!) ?? []
+          .map((plugin) => plugin.paths.css!)
+          .flat() ?? []
       ),
       !!sortedPlugins && !pluginsLoading && !pluginsError,
     ];
@@ -119,19 +121,25 @@ function useLoadPlugins(disableCustomizations?: boolean) {
 
 interface IPluginsLoaderProps {
   disableCustomizations?: boolean;
+  enabled: boolean;
 }
 
 export const PluginsLoader: React.FC<
   React.PropsWithChildren<IPluginsLoaderProps>
-> = ({ disableCustomizations, children }) => {
+> = ({ disableCustomizations, enabled, children }) => {
   const Toast = useToast();
-  const { loading: loaded, error } = useLoadPlugins(disableCustomizations);
+  const { loading: loaded, error } = useLoadPlugins(
+    disableCustomizations,
+    !enabled
+  );
 
   useEffect(() => {
     if (error) {
       Toast.error(`Error loading plugins: ${error.message}`);
     }
   }, [Toast, error]);
+
+  if (!enabled) return <>{children}</>;
 
   if (!loaded && !error)
     return (
@@ -141,6 +149,7 @@ export const PluginsLoader: React.FC<
   return <>{children}</>;
 };
 
-export const PluginRoutes: React.FC = PatchFunction("PluginRoutes", (props) => {
-  return <>{props.children}</>;
-}) as React.FC;
+export const PluginRoutes: React.FC<React.PropsWithChildren<{}>> =
+  PatchFunction("PluginRoutes", (props: React.PropsWithChildren<{}>) => {
+    return <>{props.children}</>;
+  }) as React.FC;

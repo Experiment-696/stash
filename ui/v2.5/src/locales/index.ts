@@ -1,6 +1,4 @@
-import Countries, { LocaleData } from "i18n-iso-countries";
-
-export type NestedMessage = { [key: string]: NestedMessage | string };
+import Countries from "i18n-iso-countries";
 
 export const localeCountries = {
   af: () => import("i18n-iso-countries/langs/af.json"),
@@ -42,7 +40,8 @@ export const localeCountries = {
   vi: () => import("i18n-iso-countries/langs/vi.json"),
   zh: () => import("i18n-iso-countries/langs/zh.json"),
   tw: () => import("src/locales/countryNames/zh-TW.json"),
-} as { [key: string]: () => Promise<LocaleData> };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as { [key: string]: any };
 
 export const getLocaleCode = (code: string) => {
   if (code === "zh-CN") return "zh";
@@ -98,6 +97,7 @@ export const localeLoader = {
   viVN: () => import("./vi-VN.json"),
   zhCN: () => import("./zh-CN.json"),
   zhTW: () => import("./zh-TW.json"),
-} as { [key: string]: () => Promise<{ default: NestedMessage }> };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+} as { [key: string]: any };
 
 export default localeLoader;

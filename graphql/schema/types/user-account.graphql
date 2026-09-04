@@ -1,0 +1,46 @@
+type UserAccount {
+  id: ID!
+  username: String!
+  role: String!
+  status: String!
+  capabilities: [String!]!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+}
+
+type MyPreferences {
+  homepageRoute: String!
+  themeID: ID
+}
+
+type SelectableTheme {
+  id: ID!
+  name: String!
+}
+
+type AuditEvent {
+  id: ID!
+  occurredAt: Timestamp!
+  actorUserId: ID
+  eventType: String!
+  targetType: String
+  targetId: String
+  result: String!
+}
+
+input UserCreateInput {
+  username: String!
+  password: String!
+  role: String!
+}
+
+input FirstAdminBootstrapInput {
+  username: String!
+  password: String!
+}
+
+input UserAccessInput {
+  id: ID!
+  role: String!
+  status: String!
+}

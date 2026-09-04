@@ -173,6 +173,7 @@ export class ListFilterModel {
 
           this.criteria.push(criterion);
         } catch (err) {
+          // eslint-disable-next-line no-console
           console.error("Failed to parse encoded criterion:", err);
         }
       }
@@ -219,12 +220,12 @@ export class ListFilterModel {
 
   private static translateJSON(jsonString: string, decoding: boolean) {
     let inString = false;
-    let isEscaped = false;
+    let escape = false;
     return [...jsonString]
       .map((c) => {
-        if (isEscaped) {
+        if (escape) {
           // this character has been escaped, skip
-          isEscaped = false;
+          escape = false;
           return c;
         }
 
@@ -232,7 +233,7 @@ export class ListFilterModel {
           case "\\":
             // escape the next character if in a string
             if (inString) {
-              isEscaped = true;
+              escape = true;
             }
             break;
           case '"':
@@ -377,8 +378,8 @@ export class ListFilterModel {
             ? "asc"
             : undefined
           : this.sortDirection === SortDirectionEnum.Desc
-            ? "desc"
-            : undefined,
+          ? "desc"
+          : undefined,
       disp:
         this.displayMode !== DEFAULT_PARAMS.displayMode
           ? String(this.displayMode)
@@ -509,7 +510,6 @@ export class ListFilterModel {
   public setCriteria(criteria: Criterion[]) {
     const ret = this.clone();
     ret.criteria = criteria;
-    ret.currentPage = 1; // reset to first page
     return ret;
   }
 

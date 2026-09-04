@@ -147,7 +147,7 @@ const AddContentModal: React.FC<IAddSavedFilterModalProps> = ({
         <Form.Control
           as="select"
           value={premadeFilterIndex}
-          onChange={(e) => setPremadeFilterIndex(parseInt(e.target.value, 10))}
+          onChange={(e) => setPremadeFilterIndex(parseInt(e.target.value))}
           className="btn-secondary"
         >
           {premadeFilterOptions.map((c, i) => (
@@ -191,7 +191,7 @@ const AddContentModal: React.FC<IAddSavedFilterModalProps> = ({
       case "front_page.types.saved_filter":
         onClose({
           __typename: "SavedFilter",
-          savedFilterId: parseInt(savedFilter!, 10),
+          savedFilterId: parseInt(savedFilter!),
         });
         return;
     }
@@ -234,15 +234,14 @@ const ContentRow: React.FC<IFilterRowProps> = (props: IFilterRowProps) => {
 
   function title() {
     switch (props.content.__typename) {
-      case "SavedFilter": {
+      case "SavedFilter":
         const savedFilterId = String(props.content.savedFilterId);
         const savedFilter = props.allSavedFilters.find(
           (f) => f.id === savedFilterId
         );
         if (!savedFilter) return "";
         return filterTitle(intl, savedFilter);
-      }
-      case "CustomFilter": {
+      case "CustomFilter":
         const asCustomFilter = props.content as ICustomFilter;
         if (asCustomFilter.message)
           return intl.formatMessage(
@@ -250,7 +249,6 @@ const ContentRow: React.FC<IFilterRowProps> = (props: IFilterRowProps) => {
             asCustomFilter.message.values
           );
         return asCustomFilter.title ?? "";
-      }
     }
   }
 
@@ -362,7 +360,7 @@ export const FrontPageConfig: React.FC<IFrontPageConfigProps> = ({
   }
 
   function deleteSavedFilter(index: number) {
-    setCurrentContent(currentContent.filter((_f, i) => i !== index));
+    setCurrentContent(currentContent.filter((f, i) => i !== index));
   }
 
   return (

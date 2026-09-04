@@ -4,7 +4,7 @@ import {
   CriterionModifier,
   CustomFieldCriterionInput,
 } from "src/core/generated-graphql";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 
 function valueToString(value: unknown[] | undefined | null) {
   if (!value) return "";
@@ -43,7 +43,7 @@ export class CustomFieldsCriterion extends Criterion {
     }
 
     const first = this.value[0];
-    let messageID = "";
+    let messageID;
     let valueString = "";
 
     if (

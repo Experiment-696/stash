@@ -70,7 +70,6 @@ type StudioFinder interface {
 
 type TagFinder interface {
 	models.TagGetter
-	models.TagNameFinder
 	models.TagAutoTagQueryer
 }
 

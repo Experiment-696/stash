@@ -45,10 +45,8 @@ import {
   faTimes,
   faBars,
   faImages,
-  faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
-import { DeleteImagesDialog } from "src/components/Images/DeleteImagesDialog";
 import { useDebounce } from "../debounce";
 import { isVideo } from "src/utils/visualFile";
 import { imageTitle } from "src/core/files";
@@ -91,15 +89,12 @@ interface IProps {
   initialIndex?: number;
   showNavigation: boolean;
   slideshowEnabled?: boolean;
-  slideshowAutostart?: boolean;
   page?: number;
   pages?: number;
   pageSize?: number;
-  totalCount?: number;
   pageCallback?: (props: { direction?: number; page?: number }) => void;
   chapters?: IChapter[];
   hide: () => void;
-  onDeleteImage?: (id: string) => void;
 }
 
 export const LightboxComponent: React.FC<IProps> = ({
@@ -109,14 +104,12 @@ export const LightboxComponent: React.FC<IProps> = ({
   initialIndex = 0,
   showNavigation,
   slideshowEnabled = false,
-  slideshowAutostart = false,
   page,
-  pageSize = 40,
-  totalCount,
+  pages,
+  pageSize: pageSize = 40,
   pageCallback,
   chapters = [],
   hide,
-  onDeleteImage,
 }) => {
   const [updateImage] = useImageUpdate();
 
@@ -130,8 +123,6 @@ export const LightboxComponent: React.FC<IProps> = ({
   const [showOptions, setShowOptions] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
   const [imagesLoaded, setImagesLoaded] = useState(0);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const lastDKeyTime = useRef<number>(0);
   const [navOffset, setNavOffset] = useState<React.CSSProperties | undefined>();
 
   const oldImages = useRef<ILightboxImage[]>([]);
@@ -240,16 +231,12 @@ export const LightboxComponent: React.FC<IProps> = ({
     setLightboxSettings({ displayMode: v });
   }
 
-  // `slideshowInterval` controls the slideshow logic, while
-  // `displayedSlideshowInterval` is for display purposes only. Keeping the two
-  // separate lets us handle the logic however we want while still showing the
-  // user something that makes sense.
-  //
-  // Autostart the slideshow on open when requested (e.g. opening a gallery's
-  // lightbox from the galleries page). The component mounts fresh on each open,
-  // so initialising the interval here starts playback immediately.
+  // slideshowInterval is used for controlling the logic
+  // displaySlideshowInterval is for display purposes only
+  // keeping them separate and independant allows us to handle the logic however we want
+  // while still displaying something that makes sense to the user
   const [slideshowInterval, setSlideshowInterval] = useState<number | null>(
-    slideshowEnabled && slideshowAutostart ? slideshowDelay : null
+    null
   );
 
   const [displayedSlideshowInterval, setDisplayedSlideshowInterval] =
@@ -304,7 +291,6 @@ export const LightboxComponent: React.FC<IProps> = ({
     }
   }, [index, images.length]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional reset on images change
   useEffect(() => {
     // reset images loaded counter for new images
     setImagesLoaded(0);
@@ -338,7 +324,7 @@ export const LightboxComponent: React.FC<IProps> = ({
       document.body.style.overflow = "hidden";
       Mousetrap.pause();
     }
-  }, [initialIndex, isVisible, index]);
+  }, [initialIndex, isVisible, setIndex, index]);
 
   const toggleSlideshow = useCallback(() => {
     if (slideshowInterval) {
@@ -365,7 +351,8 @@ export const LightboxComponent: React.FC<IProps> = ({
 
   const handleClose = (e: React.MouseEvent<HTMLDivElement>) => {
     const { className } = e.target as Element;
-    if (className?.includes?.(CLASSNAME_IMAGE)) close();
+    if (className && className.includes && className.includes(CLASSNAME_IMAGE))
+      close();
   };
 
   const handleLeft = useCallback(
@@ -393,7 +380,15 @@ export const LightboxComponent: React.FC<IProps> = ({
         resetIntervalCallback.current();
       }
     },
-    [images, pageCallback, isSwitchingPage, index, disableAnimation, setInstant]
+    [
+      images,
+      pageCallback,
+      isSwitchingPage,
+      resetIntervalCallback,
+      index,
+      disableAnimation,
+      setInstant,
+    ]
   );
 
   const handleRight = useCallback(
@@ -421,7 +416,16 @@ export const LightboxComponent: React.FC<IProps> = ({
         resetIntervalCallback.current();
       }
     },
-    [images, pageCallback, isSwitchingPage, index, disableAnimation, setInstant]
+    [
+      images,
+      setIndex,
+      pageCallback,
+      isSwitchingPage,
+      resetIntervalCallback,
+      index,
+      disableAnimation,
+      setInstant,
+    ]
   );
 
   const firstScroll = useRef<number | null>(null);
@@ -439,19 +443,15 @@ export const LightboxComponent: React.FC<IProps> = ({
       if (e.key === "ArrowLeft") handleLeft();
       else if (e.key === "ArrowRight") handleRight();
       else if (e.key === "Escape") close();
-      else if (
-        e.key === "d" &&
-        images[index ?? initialIndex]?.id !== undefined
-      ) {
-        const now = Date.now();
-        if (now - lastDKeyTime.current < 1000) {
-          setIsDeleteDialogOpen(true);
-        }
-        lastDKeyTime.current = now;
-      }
     },
-    [setInstant, handleLeft, handleRight, close, images, index, initialIndex]
+    [setInstant, handleLeft, handleRight, close]
   );
+  const handleFullScreenChange = () => {
+    if (clearIntervalCallback.current) {
+      clearIntervalCallback.current();
+    }
+    setFullscreen(document.fullscreenElement !== null);
+  };
 
   const [clearCallback, resetCallback] = useInterval(
     () => {
@@ -464,13 +464,6 @@ export const LightboxComponent: React.FC<IProps> = ({
   clearIntervalCallback.current = clearCallback;
 
   useEffect(() => {
-    const handleFullScreenChange = () => {
-      if (clearIntervalCallback.current) {
-        clearIntervalCallback.current();
-      }
-      setFullscreen(document.fullscreenElement !== null);
-    };
-
     if (isVisible) {
       document.addEventListener("keydown", handleKey);
       document.addEventListener("fullscreenchange", handleFullScreenChange);
@@ -496,14 +489,14 @@ export const LightboxComponent: React.FC<IProps> = ({
   }
 
   const navItems = images.map((image, i) =>
-    React.createElement(image.paths.preview !== "" ? "video" : "img", {
-      loop: image.paths.preview !== "",
-      autoPlay: image.paths.preview !== "",
-      playsInline: image.paths.preview !== "",
+    React.createElement(image.paths.preview != "" ? "video" : "img", {
+      loop: image.paths.preview != "",
+      autoPlay: image.paths.preview != "",
+      playsInline: image.paths.preview != "",
       src:
-        image.paths.preview !== ""
-          ? (image.paths.preview ?? "")
-          : (image.paths.thumbnail ?? ""),
+        image.paths.preview != ""
+          ? image.paths.preview ?? ""
+          : image.paths.thumbnail ?? "",
       alt: "",
       className: cx(CLASSNAME_NAVIMAGE, {
         [CLASSNAME_NAVSELECTED]: i === index,
@@ -539,23 +532,10 @@ export const LightboxComponent: React.FC<IProps> = ({
 
   const currentIndex = index === null ? initialIndex : index;
 
-  useEffect(() => {
-    // Don't auto-close while images are still loading. Some entry points open
-    // the lightbox with an empty image list and isLoading=true, then populate
-    // it asynchronously. Only an empty list *after* loading means the last
-    // image was deleted.
-    if (isLoading) return;
-    if (images.length === 0) {
-      close();
-    } else if (index !== null && index >= images.length) {
-      setIndex(images.length - 1);
-    }
-  }, [images.length, index, close, isLoading]);
-
   function gotoPage(imageIndex: number) {
     const indexInPage = (imageIndex - 1) % pageSize;
     if (pageCallback) {
-      const jumppage = Math.floor((imageIndex - 1) / pageSize) + 1;
+      let jumppage = Math.floor((imageIndex - 1) / pageSize) + 1;
       if (page !== jumppage) {
         pageCallback({ page: jumppage });
         oldImages.current = images;
@@ -574,7 +554,7 @@ export const LightboxComponent: React.FC<IProps> = ({
       : imageNumber;
 
     let chapterTitle = "";
-    chapters.forEach((chapter) => {
+    chapters.forEach(function (chapter) {
       if (chapter.image_index > globalIndex) {
         return;
       }
@@ -791,20 +771,26 @@ export const LightboxComponent: React.FC<IProps> = ({
       }
     }
 
-    const currentNumber =
-      page !== undefined
-        ? (page - 1) * pageSize + currentIndex + 1
-        : currentIndex + 1;
-    const displayTotal = totalCount ?? images.length;
+    const pageHeader =
+      page && pages
+        ? intl.formatMessage(
+            { id: "dialogs.lightbox.page_header" },
+            { page, total: pages }
+          )
+        : "";
 
     return (
       <>
         <div className={CLASSNAME_HEADER}>
           <div className={CLASSNAME_LEFT_SPACER}>{renderChapterMenu()}</div>
           <div className={CLASSNAME_INDICATOR}>
-            <span>{chapterHeader()}</span>
-            {displayTotal > 1 ? (
-              <b ref={indicatorRef}>{`${currentNumber} / ${displayTotal}`}</b>
+            <span>
+              {chapterHeader()} {pageHeader}
+            </span>
+            {images.length > 1 ? (
+              <b ref={indicatorRef}>{`${currentIndex + 1} / ${
+                images.length
+              }`}</b>
             ) : undefined}
           </div>
           <div className={CLASSNAME_RIGHT}>
@@ -986,27 +972,13 @@ export const LightboxComponent: React.FC<IProps> = ({
           <div className={CLASSNAME_FOOTER_CENTER}>
             {currentImage && (
               <>
-                <div
-                  className="d-flex align-items-center justify-content-center"
-                  style={{ gap: "0.5rem" }}
+                <Link
+                  className="image-link"
+                  to={`/images/${currentImage.id}`}
+                  onClick={() => close()}
                 >
-                  <Link
-                    className="image-link"
-                    to={`/images/${currentImage.id}`}
-                    onClick={() => close()}
-                  >
-                    {title ?? ""}
-                  </Link>
-                  {currentImage.id !== undefined && (
-                    <Button
-                      className="minimal delete-button"
-                      onClick={() => setIsDeleteDialogOpen(true)}
-                      title={intl.formatMessage({ id: "actions.delete" })}
-                    >
-                      <Icon icon={faTrash} />
-                    </Button>
-                  )}
-                </div>
+                  {title ?? ""}
+                </Link>
                 {currentImage.galleries?.length ? (
                   <Link
                     className="image-gallery-link"
@@ -1020,14 +992,14 @@ export const LightboxComponent: React.FC<IProps> = ({
               </>
             )}
           </div>
-          <div className={CLASSNAME_FOOTER_RIGHT} />
+          <div className={CLASSNAME_FOOTER_RIGHT}></div>
         </div>
       </>
     );
   }
 
   if (!isVisible) {
-    return null;
+    return <></>;
   }
 
   return (
@@ -1038,20 +1010,6 @@ export const LightboxComponent: React.FC<IProps> = ({
       onClick={handleClose}
     >
       {renderBody()}
-      {isDeleteDialogOpen && images[currentIndex]?.id !== undefined && (
-        <DeleteImagesDialog
-          selected={[
-            {
-              id: images[currentIndex].id!,
-              visual_files: images[currentIndex].visual_files ?? [],
-            },
-          ]}
-          onClose={(confirmed) => {
-            setIsDeleteDialogOpen(false);
-            if (confirmed) onDeleteImage?.(images[currentIndex].id!);
-          }}
-        />
-      )}
     </div>
   );
 };

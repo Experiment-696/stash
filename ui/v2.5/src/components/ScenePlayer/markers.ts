@@ -86,7 +86,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     markerSet.dot.toggleAttribute("marker-tooltip-shown", true);
 
     // Set background color based on tag (if available)
-    if (marker.primaryTag?.name && this.tagColors[marker.primaryTag.name]) {
+    if (
+      marker.primaryTag &&
+      marker.primaryTag.name &&
+      this.tagColors[marker.primaryTag.name]
+    ) {
       markerSet.dot.style.backgroundColor =
         this.tagColors[marker.primaryTag.name];
     }
@@ -126,7 +130,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     marker: IMarker,
     layer: number,
     duration: number,
-    _seekBar: Element,
+    seekBar: Element,
     parent: Element
   ) {
     if (!marker.end_seconds) return;
@@ -159,7 +163,11 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     rangeDiv.style.display = "none"; // Initially hidden
 
     // Set background color based on tag (if available)
-    if (marker.primaryTag?.name && this.tagColors[marker.primaryTag.name]) {
+    if (
+      marker.primaryTag &&
+      marker.primaryTag.name &&
+      this.tagColors[marker.primaryTag.name]
+    ) {
       rangeDiv.style.backgroundColor = this.tagColors[marker.primaryTag.name];
     }
 
@@ -407,7 +415,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
     const q = v * (1 - f * s);
     const t = v * (1 - (1 - f) * s);
 
-    let r: number, g: number, b: number;
+    let r, g, b;
     switch (i % 6) {
       case 0:
         r = v;
@@ -457,6 +465,7 @@ class MarkersPlugin extends videojs.getPlugin("plugin") {
 
 videojs.registerPlugin("markers", MarkersPlugin);
 
+/* eslint-disable @typescript-eslint/naming-convention */
 declare module "video.js" {
   interface VideoJsPlayer {
     markers: () => MarkersPlugin;

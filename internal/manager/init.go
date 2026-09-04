@@ -120,6 +120,8 @@ func Initialize(cfg *config.Config, l *log.Logger) (*Manager, error) {
 		if err := mgr.postInit(ctx); err != nil {
 			return nil, err
 		}
+
+		mgr.checkSecurityTripwire()
 	} else {
 		cfgFile := cfg.GetConfigFile()
 		if cfgFile != "" {
@@ -196,8 +198,6 @@ func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshScraperCache()
 	s.RefreshScraperSourceManager()
 
-	s.RefreshDLNA()
-
 	s.SetBlobStoreOptions()
 
 	s.writeStashIcon()
@@ -233,6 +233,9 @@ func (s *Manager) postInit(ctx context.Context) error {
 			return err
 		}
 	}
+	// DLNA's multiuser gate depends on the persisted account count. Refresh
+	// only after the database is ready so startup cannot bypass that gate.
+	s.RefreshDLNA()
 
 	// Set the proxy if defined in config
 	if s.Config.GetProxy() != "" {
@@ -246,6 +249,12 @@ func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshStreamManager()
 
 	return nil
+}
+
+func (s *Manager) checkSecurityTripwire() {
+	if err := session.CheckExternalAccessTripwire(s.Config); err != nil {
+		session.LogExternalAccessError(*err)
+	}
 }
 
 func (s *Manager) writeStashIcon() {

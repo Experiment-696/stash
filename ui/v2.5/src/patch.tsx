@@ -1,7 +1,6 @@
-// biome-ignore-all lint/complexity/noBannedTypes: intentionally using Function type
 import React from "react";
 
-export const components: Record<string, Function> = {};
+export let components: Record<string, Function> = {};
 
 const beforeFns: Record<string, Function[]> = {};
 const insteadFns: Record<string, Function[]> = {};
@@ -54,7 +53,7 @@ export function RegisterComponent<T extends Function>(
   return fn;
 }
 
-// biome-ignore-start lint/suspicious/noExplicitAny: intentional
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function runInstead(
   fns: Function[],
   targetFn: Function,
@@ -73,7 +72,7 @@ function runInstead(
 
     const thisTarget = fns[i++];
     return new Proxy(thisTarget, {
-      apply: (target, ctx, args) => {
+      apply: function (target, ctx, args) {
         return target.apply(ctx, args.concat(next()));
       },
     });
@@ -81,13 +80,13 @@ function runInstead(
 
   return fns[0].apply(thisArg, argArray.concat(next()));
 }
-// biome-ignore-end lint/suspicious/noExplicitAny: intentional
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // patches a function to implement the before/instead/after functionality
 export function PatchFunction<T extends Function>(name: string, fn: T) {
   return new Proxy(fn, {
     apply(target, ctx, args) {
-      let result: unknown;
+      let result;
 
       for (const beforeFn of beforeFns[name] || []) {
         args = beforeFn.apply(ctx, args);
@@ -118,7 +117,7 @@ export function PatchComponent<T>(
 }
 
 // patches a component and registers it in the pluginapi components object
-export function PatchContainerComponent<T = unknown>(
+export function PatchContainerComponent<T = {}>(
   component: string
 ): React.FC<React.PropsWithChildren<T>> {
   const fn: React.FC<React.PropsWithChildren<T>> = (

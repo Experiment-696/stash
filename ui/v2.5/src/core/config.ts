@@ -73,9 +73,6 @@ export interface IUIConfig {
   // if true the chromecast option will enabled
   enableChromecast?: boolean;
 
-  // if true the slideshow autostarts when opening a gallery's lightbox from the galleries page
-  autostartGallerySlideshow?: boolean;
-
   // if true the fullscreen mobile media auto-rotate option will be disabled
   disableMobileMediaAutoRotateEnabled?: boolean;
 
@@ -103,14 +100,10 @@ export interface IUIConfig {
 
   pinnedFilters?: Record<string, string[]>;
   tableColumns?: Record<string, string[]>;
-  pinnedSortBy?: Record<string, string[]>;
 
   advancedMode?: boolean;
 
-  taskDefaults?: Record<string, object>;
-
-  // if true the auto tag confirmation warning is skipped
-  disableAutoTagWarning?: boolean;
+  taskDefaults?: Record<string, {}>;
 
   defaultFilters?: DefaultFilters;
 

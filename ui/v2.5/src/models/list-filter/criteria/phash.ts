@@ -132,8 +132,8 @@ export class DuplicatedCriterion extends ModifierCriterion<IDuplicationValue> {
 
   // Override to handle legacy saved formats
   public setFromSavedCriterion(criterion: unknown): void {
-    // XXbiome-ignore lint/suspicious/noExplicitAny: intentional
-    const c = criterion as { value?: unknown; modifier?: CriterionModifier };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const c = criterion as any;
 
     // Handle various saved formats
     if (c.value !== undefined) {

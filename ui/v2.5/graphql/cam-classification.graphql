@@ -1,0 +1,106 @@
+query CamShows($sort: CamShowSortMode! = DEFAULT) {
+  camShows(sort: $sort) {
+    id
+    sceneID
+    title
+    showType
+    showDate
+    capturedAt
+    capturedTimezone
+    capturedPrecision
+    durationSeconds
+    durationOverridden
+    durationOverrideReason
+    details
+    tags { id name }
+    sites { id name icon }
+    links { id linkType url label }
+    models { modelID displayName role }
+  }
+}
+query CamClassificationRules {
+  camClassificationRules {
+    id
+    name
+    pattern
+    target
+    category
+    enabled
+    tagIDs
+    tags { id name }
+    createdAt
+    updatedAt
+  }
+}
+query CamClassificationPreview {
+  camClassificationPreview {
+    matched
+    applied
+    skipped
+    conflicted
+    items {
+      sceneID
+      matched
+      applied
+      skipped
+      conflict
+      category
+      tagIDs
+    }
+  }
+}
+mutation CamClassificationRuleCreate(
+  $input: CamClassificationRuleCreateInput!
+) {
+  camClassificationRuleCreate(input: $input) {
+    id
+    name
+    pattern
+    target
+    category
+    enabled
+    tagIDs
+    tags { id name }
+  }
+}
+mutation CamClassificationRuleUpdate(
+  $input: CamClassificationRuleUpdateInput!
+) {
+  camClassificationRuleUpdate(input: $input) {
+    id
+    name
+    pattern
+    target
+    category
+    enabled
+    tagIDs
+    tags { id name }
+  }
+}
+mutation CamClassificationRuleSetEnabled($id: ID!, $enabled: Boolean!) {
+  camClassificationRuleSetEnabled(id: $id, enabled: $enabled)
+}
+mutation CamClassificationApply {
+  camClassificationApply {
+    matched
+    applied
+    skipped
+    conflicted
+    items {
+      sceneID
+      matched
+      applied
+      skipped
+      conflict
+      category
+      tagIDs
+    }
+  }
+}
+
+mutation CamShowUpdate($input: CamShowCoreUpdateInput!) {
+  camShowUpdate(input: $input) {
+    id sceneID title showType showDate capturedAt capturedTimezone capturedPrecision durationSeconds durationOverridden durationOverrideReason details
+    tags { id name } sites { id name icon } links { id linkType url label } models { modelID displayName role }
+  }
+}

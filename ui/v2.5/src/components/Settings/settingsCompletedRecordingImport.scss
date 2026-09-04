@@ -1,0 +1,18 @@
+.completed-recording-import {
+  margin-top: 2rem;
+
+  .completed-recording-results {
+    margin-top: 1.5rem;
+  }
+
+  .completed-recording-table-wrap {
+    overflow-x: auto;
+  }
+
+  @media (max-width: 575.98px) {
+    button {
+      min-height: 44px;
+      width: 100%;
+    }
+  }
+}

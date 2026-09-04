@@ -14,7 +14,6 @@ interface ICountButtonProps {
   onValueClicked?: () => void;
   title?: string;
   countTitle?: string;
-  dataAction?: string;
 }
 
 export const CountButton: React.FC<ICountButtonProps> = ({
@@ -24,12 +23,10 @@ export const CountButton: React.FC<ICountButtonProps> = ({
   onValueClicked,
   title,
   countTitle,
-  dataAction,
 }) => {
   return (
     <ButtonGroup
       className={cx("count-button", { "increment-only": !onValueClicked })}
-      data-action={dataAction}
     >
       <Button
         className="minimal count-icon"
@@ -43,7 +40,7 @@ export const CountButton: React.FC<ICountButtonProps> = ({
         className="minimal count-value"
         variant="secondary"
         onClick={() => (onValueClicked ?? onIncrement)?.()}
-        title={onValueClicked ? countTitle : undefined}
+        title={!!onValueClicked ? countTitle : undefined}
       >
         <span>{value}</span>
       </Button>
@@ -79,7 +76,6 @@ export const OCounterButton: React.FC<CountButtonPropsNoIcon> = (props) => {
       icon={icon}
       title={intl.formatMessage({ id: messageID })}
       countTitle={intl.formatMessage({ id: "actions.view_history" })}
-      dataAction="o-counter"
     />
   );
 };

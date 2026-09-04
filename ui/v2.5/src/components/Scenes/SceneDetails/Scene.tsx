@@ -16,6 +16,7 @@ import {
   useSceneIncrementO,
   useSceneGenerateScreenshot,
   useSceneUpdate,
+  useSceneSetRating,
   queryFindScenes,
   queryFindScenesByID,
   useSceneIncrementPlayCount,
@@ -188,6 +189,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   const Toast = useToast();
   const intl = useIntl();
   const history = useHistory();
+  const { data: meData } = GQL.useMeQuery({ fetchPolicy: "no-cache" });
+  const isAdmin = meData?.me.role === "ADMIN";
+  const canEditMetadata = isAdmin || meData?.me.role === "MODERATOR";
   const [updateScene] = useSceneUpdate();
   const [generateScreenshot] = useSceneGenerateScreenshot();
   const { configuration } = useConfigurationContext();
@@ -224,13 +228,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   };
 
+  const [setSceneRating] = useSceneSetRating();
+
   function setRating(v: number | null) {
-    updateScene({
+    setSceneRating({
       variables: {
-        input: {
-          id: scene.id,
-          rating100: v,
-        },
+        id: scene.id,
+        rating100: v,
       },
     });
   }
@@ -245,7 +249,9 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("scene-details-panel"));
     Mousetrap.bind("q", () => setActiveTabKey("scene-queue-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("scene-edit-panel"));
+    Mousetrap.bind("e", () => {
+      if (canEditMetadata) setActiveTabKey("scene-edit-panel");
+    });
     Mousetrap.bind("k", () => setActiveTabKey("scene-markers-panel"));
     Mousetrap.bind("i", () => setActiveTabKey("scene-file-info-panel"));
     Mousetrap.bind("h", () => setActiveTabKey("scene-history-panel"));
@@ -256,12 +262,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     Mousetrap.bind("p p", () => onQueuePrevious());
     Mousetrap.bind("p r", () => onQueueRandom());
     Mousetrap.bind(",", () => setCollapsed(!collapsed));
-    Mousetrap.bind("d d", () => setIsDeleteAlertOpen(true));
+    Mousetrap.bind("d d", () => {
+      if (isAdmin) setIsDeleteAlertOpen(true);
+    });
     Mousetrap.bind("c c", () => {
-      onGenerateScreenshot(getPlayerPosition());
+      if (isAdmin) onGenerateScreenshot(getPlayerPosition());
     });
     Mousetrap.bind("c d", () => {
-      onGenerateScreenshot();
+      if (isAdmin) onGenerateScreenshot();
     });
 
     return () => {
@@ -402,7 +410,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }
 
   function maybeRenderMergeDialog() {
-    if (!scene.id) return;
+    if (!isAdmin || !scene.id) return;
     return (
       <SceneMergeModal
         show={isMerging}
@@ -420,7 +428,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }
 
   function maybeRenderDeleteDialog() {
-    if (isDeleteAlertOpen) {
+    if (isAdmin && isDeleteAlertOpen) {
       return (
         <DeleteScenesDialog selected={[scene]} onClose={onDeleteDialogClosed} />
       );
@@ -428,7 +436,7 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
   }
 
   function maybeRenderSceneGenerateDialog() {
-    if (isGenerateDialogOpen) {
+    if (isAdmin && isGenerateDialogOpen) {
       return (
         <GenerateDialog
           selectedIds={[scene.id]}
@@ -441,77 +449,78 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
     }
   }
 
-  const renderOperations = () => (
-    <Dropdown>
-      <Dropdown.Toggle
-        variant="secondary"
-        id="operation-menu"
-        className="minimal"
-        title={intl.formatMessage({ id: "operations" })}
-      >
-        <Icon icon={faEllipsisV} />
-      </Dropdown.Toggle>
-      <Dropdown.Menu className="bg-secondary text-white">
-        {!!scene.files.length && (
+  const renderOperations = () =>
+    isAdmin ? (
+      <Dropdown>
+        <Dropdown.Toggle
+          variant="secondary"
+          id="operation-menu"
+          className="minimal"
+          title={intl.formatMessage({ id: "operations" })}
+        >
+          <Icon icon={faEllipsisV} />
+        </Dropdown.Toggle>
+        <Dropdown.Menu className="bg-secondary text-white">
+          {!!scene.files.length && (
+            <Dropdown.Item
+              key="rescan"
+              className="bg-secondary text-white"
+              onClick={() => onRescan()}
+            >
+              <FormattedMessage id="actions.rescan" />
+            </Dropdown.Item>
+          )}
           <Dropdown.Item
-            key="rescan"
+            key="generate"
             className="bg-secondary text-white"
-            onClick={() => onRescan()}
+            onClick={() => setIsGenerateDialogOpen(true)}
           >
-            <FormattedMessage id="actions.rescan" />
+            <FormattedMessage id="actions.generate" />…
           </Dropdown.Item>
-        )}
-        <Dropdown.Item
-          key="generate"
-          className="bg-secondary text-white"
-          onClick={() => setIsGenerateDialogOpen(true)}
-        >
-          <FormattedMessage id="actions.generate" />…
-        </Dropdown.Item>
-        <Dropdown.Item
-          key="generate-screenshot"
-          className="bg-secondary text-white"
-          onClick={() => onGenerateScreenshot(getPlayerPosition())}
-        >
-          <FormattedMessage id="actions.generate_thumb_from_current" />
-        </Dropdown.Item>
-        <Dropdown.Item
-          key="generate-default"
-          className="bg-secondary text-white"
-          onClick={() => onGenerateScreenshot()}
-        >
-          <FormattedMessage id="actions.generate_thumb_default" />
-        </Dropdown.Item>
-        {boxes.length > 0 && (
           <Dropdown.Item
-            key="submit"
+            key="generate-screenshot"
             className="bg-secondary text-white"
-            onClick={() => setShowDraftModal(true)}
+            onClick={() => onGenerateScreenshot(getPlayerPosition())}
           >
-            <FormattedMessage id="actions.submit_stash_box" />
+            <FormattedMessage id="actions.generate_thumb_from_current" />
           </Dropdown.Item>
-        )}
-        <Dropdown.Item
-          key="merge-scene"
-          className="bg-secondary text-white"
-          onClick={() => setIsMerging(true)}
-        >
-          <FormattedMessage id="actions.merge" />
-          ...
-        </Dropdown.Item>
-        <Dropdown.Item
-          key="delete-scene"
-          className="bg-secondary text-white"
-          onClick={() => setIsDeleteAlertOpen(true)}
-        >
-          <FormattedMessage
-            id="actions.delete"
-            values={{ entityType: intl.formatMessage({ id: "scene" }) }}
-          />
-        </Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
-  );
+          <Dropdown.Item
+            key="generate-default"
+            className="bg-secondary text-white"
+            onClick={() => onGenerateScreenshot()}
+          >
+            <FormattedMessage id="actions.generate_thumb_default" />
+          </Dropdown.Item>
+          {boxes.length > 0 && (
+            <Dropdown.Item
+              key="submit"
+              className="bg-secondary text-white"
+              onClick={() => setShowDraftModal(true)}
+            >
+              <FormattedMessage id="actions.submit_stash_box" />
+            </Dropdown.Item>
+          )}
+          <Dropdown.Item
+            key="merge-scene"
+            className="bg-secondary text-white"
+            onClick={() => setIsMerging(true)}
+          >
+            <FormattedMessage id="actions.merge" />
+            ...
+          </Dropdown.Item>
+          <Dropdown.Item
+            key="delete-scene"
+            className="bg-secondary text-white"
+            onClick={() => setIsDeleteAlertOpen(true)}
+          >
+            <FormattedMessage
+              id="actions.delete"
+              values={{ entityType: intl.formatMessage({ id: "scene" }) }}
+            />
+          </Dropdown.Item>
+        </Dropdown.Menu>
+      </Dropdown>
+    ) : null;
 
   const renderTabs = () => (
     <Tab.Container
@@ -578,11 +587,13 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 <FormattedMessage id="history" />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="scene-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canEditMetadata && (
+              <Nav.Item>
+                <Nav.Link eventKey="scene-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </ScenePageTabs>
         </Nav>
       </div>
@@ -636,14 +647,18 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
           >
             <SceneFileInfoPanel scene={scene} />
           </Tab.Pane>
-          <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
-            <SceneEditPanel
-              isVisible={activeTabKey === "scene-edit-panel"}
-              scene={scene}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canEditMetadata && (
+            <Tab.Pane eventKey="scene-edit-panel" mountOnEnter>
+              <SceneEditPanel
+                isVisible={activeTabKey === "scene-edit-panel"}
+                scene={scene}
+                onSubmit={onSave}
+                onDelete={
+                  isAdmin ? () => setIsDeleteAlertOpen(true) : undefined
+                }
+              />
+            </Tab.Pane>
+          )}
           <Tab.Pane eventKey="scene-history-panel">
             <SceneHistoryPanel scene={scene} />
           </Tab.Pane>
@@ -703,6 +718,14 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                 clickToRate
                 withoutContext
               />
+              <span
+                className="scene-rating-average"
+                aria-label="Global average rating"
+                title="Global average rating"
+              >
+                Global {scene.rating100_average.toFixed(1)}/100 (
+                {scene.rating100_count})
+              </span>
             </span>
             <span className="scene-toolbar-group">
               <span>
@@ -720,13 +743,15 @@ const ScenePage: React.FC<IProps> = PatchComponent("ScenePage", (props) => {
                   onIncrement={() => onIncrementOClick()}
                 />
               </span>
-              <span>
-                <OrganizedButton
-                  loading={organizedLoading}
-                  organized={scene.organized}
-                  onClick={onOrganizedClick}
-                />
-              </span>
+              {isAdmin && (
+                <span>
+                  <OrganizedButton
+                    loading={organizedLoading}
+                    organized={scene.organized}
+                    onClick={onOrganizedClick}
+                  />
+                </span>
+              )}
               <span>{renderOperations()}</span>
             </span>
           </div>
@@ -777,7 +802,7 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     [queryParams]
   );
   const queryContinue = useMemo(() => {
-    const cont = queryParams.get("continue");
+    let cont = queryParams.get("continue");
     if (cont) {
       return cont === "true";
     } else {
@@ -834,23 +859,23 @@ const SceneLoader: React.FC<RouteComponentProps<ISceneParams>> = ({
     };
   }, []);
 
+  async function getQueueFilterScenes(filter: ListFilterModel) {
+    const query = await queryFindScenes(filter);
+    const { scenes, count } = query.data.findScenes;
+    setQueueScenes(scenes);
+    setQueueTotal(count);
+    setQueueStart((filter.currentPage - 1) * filter.itemsPerPage + 1);
+  }
+
+  async function getQueueScenes(sceneIDs: number[]) {
+    const query = await queryFindScenesByID(sceneIDs);
+    const { scenes, count } = query.data.findScenes;
+    setQueueScenes(scenes);
+    setQueueTotal(count);
+    setQueueStart(1);
+  }
+
   useEffect(() => {
-    async function getQueueFilterScenes(filter: ListFilterModel) {
-      const query = await queryFindScenes(filter);
-      const { scenes, count } = query.data.findScenes;
-      setQueueScenes(scenes);
-      setQueueTotal(count);
-      setQueueStart((filter.currentPage - 1) * filter.itemsPerPage + 1);
-    }
-
-    async function getQueueScenes(sceneIDs: number[]) {
-      const query = await queryFindScenesByID(sceneIDs);
-      const { scenes, count } = query.data.findScenes;
-      setQueueScenes(scenes);
-      setQueueTotal(count);
-      setQueueStart(1);
-    }
-
     if (sceneQueue.query) {
       getQueueFilterScenes(sceneQueue.query);
     } else if (sceneQueue.sceneIDs) {

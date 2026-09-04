@@ -40,6 +40,7 @@ import {
   useFilteredSidebarKeybinds,
 } from "../List/Filters/FilterSidebar";
 import { ListOperations } from "../List/ListOperationButtons";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import cx from "classnames";
 import { FilterTags } from "../List/FilterTags";
 import { Pagination, PaginationIndex } from "../List/Pagination";
@@ -199,6 +200,7 @@ export const FilteredTagList = PatchComponent(
   (props: ITagList) => {
     const intl = useIntl();
     const history = useHistory();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const searchFocus = useFocus();
 
@@ -261,13 +263,13 @@ export const FilteredTagList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -290,7 +292,7 @@ export const FilteredTagList = PatchComponent(
       showModal(
         <ExportDialog
           exportInput={{
-            tags: {
+            studios: {
               ids: Array.from(selectedIds.values()),
               all: all,
             },
@@ -317,13 +319,13 @@ export const FilteredTagList = PatchComponent(
           pluralEntity={intl.formatMessage({ id: "tags" })}
           destroyMutation={useTagsDestroy}
           onDeleted={() => {
-            itemsToDelete.forEach((t) => {
+            itemsToDelete.forEach((t) =>
               tagRelationHook(
                 t,
                 { parents: t.parents ?? [], children: t.children ?? [] },
                 { parents: [], children: [] }
-              );
-            });
+              )
+            );
           }}
         />
       );
@@ -374,16 +376,17 @@ export const FilteredTagList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: () => onMerge(),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -395,8 +398,8 @@ export const FilteredTagList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="tag-list-operations-dropdown"
       />
     );
@@ -432,8 +435,8 @@ export const FilteredTagList = PatchComponent(
                 listSelect={listSelect}
                 setFilter={setFilter}
                 showEditFilter={showEditFilter}
-                onDelete={onDelete}
-                onEdit={onEdit}
+                onDelete={isAdmin ? onDelete : undefined}
+                onEdit={canEditMetadata ? onEdit : undefined}
                 operationComponent={operations}
                 view={view}
                 zoomable

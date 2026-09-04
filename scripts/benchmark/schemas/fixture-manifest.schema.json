@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/fixture-manifest.schema.json",
+  "title": "Stash synthetic fixture manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "seed", "size", "digest", "records_digest", "record_bytes"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "name": { "enum": ["S", "M", "L"] },
+    "seed": { "type": "integer" },
+    "size": {
+      "type": "object",
+      "required": ["objects", "files", "logical_bytes"],
+      "properties": {
+        "objects": { "type": "integer", "minimum": 1 }, "files": { "type": "integer", "minimum": 1 }, "logical_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "records_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "record_bytes": { "type": "integer", "minimum": 1, "maximum": 26843545600 }
+  }
+}

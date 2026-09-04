@@ -19,7 +19,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { ExternalLink } from "../Shared/ExternalLink";
 import { StashIDPill } from "../Shared/StashID";
-import { listToMap } from "src/utils/data";
 
 interface IPerformerModalProps {
   performer: GQL.ScrapedScenePerformerDataFragment;
@@ -52,7 +51,10 @@ const PerformerModal: React.FC<IPerformerModalProps> = ({
   >("empty");
   const [loadDict, setLoadDict] = useState<Record<number, boolean>>({});
   const [excluded, setExcluded] = useState<Record<string, boolean>>(
-    listToMap(excludedPerformerFields)
+    excludedPerformerFields.reduce(
+      (dict, field) => ({ ...dict, [field]: true }),
+      {}
+    )
   );
 
   const images = performer.images ?? [];
@@ -280,7 +282,7 @@ const PerformerModal: React.FC<IPerformerModalProps> = ({
         performerData[k] = undefined;
       }
       // #5565 - special case aliases as the names differ
-      if (k === "alias_list" && excluded.aliases) {
+      if (k == "alias_list" && excluded.aliases) {
         performerData.alias_list = undefined;
       }
     });

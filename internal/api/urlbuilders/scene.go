@@ -57,28 +57,12 @@ func (b SceneURLBuilder) GetScreenshotURL() string {
 	return b.BaseURL + "/scene/" + b.SceneID + "/screenshot?t=" + b.UpdatedAt
 }
 
-func (b SceneURLBuilder) GetFunscriptURL(apiKey string) *url.URL {
-	u, err := url.Parse(fmt.Sprintf("%s/scene/%s/funscript", b.BaseURL, b.SceneID))
-	if err != nil {
-		// shouldn't happen
-		panic(err)
-	}
-
-	if apiKey != "" {
-		v := u.Query()
-		v.Set("apikey", apiKey)
-		u.RawQuery = v.Encode()
-	}
-
-	return u
-}
-
-func (b SceneURLBuilder) GetCaptionPath() string {
-	return "/scene/" + b.SceneID + "/caption"
+func (b SceneURLBuilder) GetFunscriptURL() string {
+	return b.BaseURL + "/scene/" + b.SceneID + "/funscript"
 }
 
 func (b SceneURLBuilder) GetCaptionURL() string {
-	return b.BaseURL + b.GetCaptionPath()
+	return b.BaseURL + "/scene/" + b.SceneID + "/caption"
 }
 
 func (b SceneURLBuilder) GetInteractiveHeatmapURL() string {

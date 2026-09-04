@@ -4,16 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/stashapp/stash/internal/manager/config"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/models"
-	"github.com/stashapp/stash/pkg/utils"
 )
 
 func (r *mutationResolver) SaveFilter(ctx context.Context, input SaveFilterInput) (ret *models.SavedFilter, err error) {
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
 	if strings.TrimSpace(input.Name) == "" {
 		return nil, errors.New("name must be non-empty")
 	}
@@ -31,6 +38,7 @@ func (r *mutationResolver) SaveFilter(ctx context.Context, input SaveFilterInput
 		qb := r.repository.SavedFilter
 
 		f := models.SavedFilter{
+			UserID:       &userID,
 			Mode:         input.Mode,
 			Name:         strings.TrimSpace(input.Name),
 			FindFilter:   input.FindFilter,
@@ -42,8 +50,15 @@ func (r *mutationResolver) SaveFilter(ctx context.Context, input SaveFilterInput
 			err = qb.Create(ctx, &f)
 			ret = &f
 		} else {
+			existing, findErr := r.tokenDatabase().SavedFilter.FindForUser(ctx, *id, userID)
+			if findErr != nil {
+				return findErr
+			}
+			if existing == nil {
+				return authz.OwnershipError{}
+			}
 			f.ID = *id
-			err = qb.Update(ctx, &f)
+			err = r.tokenDatabase().SavedFilter.Update(ctx, &f)
 			ret = &f
 		}
 
@@ -55,13 +70,21 @@ func (r *mutationResolver) SaveFilter(ctx context.Context, input SaveFilterInput
 }
 
 func (r *mutationResolver) DestroySavedFilter(ctx context.Context, input DestroyFilterInput) (bool, error) {
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return false, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return false, err
+	}
 	id, err := strconv.Atoi(input.ID)
 	if err != nil {
 		return false, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		return r.repository.SavedFilter.Destroy(ctx, id)
+		return r.tokenDatabase().SavedFilter.DestroyForUser(ctx, id, userID)
 	}); err != nil {
 		return false, err
 	}
@@ -70,50 +93,38 @@ func (r *mutationResolver) DestroySavedFilter(ctx context.Context, input Destroy
 }
 
 func (r *mutationResolver) SetDefaultFilter(ctx context.Context, input SetDefaultFilterInput) (bool, error) {
-	// deprecated - write to the config in the meantime
-	config := config.GetInstance()
-
-	uiConfig := config.GetUIConfiguration()
-	if uiConfig == nil {
-		uiConfig = make(map[string]interface{})
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return false, err
 	}
-
-	m := utils.NestedMap(uiConfig)
-
-	if input.FindFilter == nil && input.ObjectFilter == nil && input.UIOptions == nil {
-		// clearing
-		m.Delete("defaultFilters." + strings.ToLower(input.Mode.String()))
-		config.SetUIConfiguration(m)
-
-		if err := config.Write(); err != nil {
-			return false, err
-		}
-
-		return true, nil
-	}
-
-	subMap := make(map[string]interface{})
-	d, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		TagName:          "json",
-		WeaklyTypedInput: true,
-		Result:           &subMap,
-	})
-
+	userID, err := persistedPrincipalUserID(principal)
 	if err != nil {
 		return false, err
 	}
 
-	if err := d.Decode(input); err != nil {
-		return false, err
+	if input.FindFilter == nil && input.ObjectFilter == nil && input.UIOptions == nil {
+		err = r.withTxn(ctx, func(txCtx context.Context) error {
+			return r.tokenDatabase().SavedFilter.SetDefaultForUser(txCtx, userID, input.Mode, nil)
+		})
+		return err == nil, err
 	}
-
-	m.Set("defaultFilters."+strings.ToLower(input.Mode.String()), subMap)
-
-	config.SetUIConfiguration(m)
-
-	if err := config.Write(); err != nil {
-		return false, err
-	}
-
-	return true, nil
+	err = r.withTxn(ctx, func(txCtx context.Context) error {
+		filters, findErr := r.tokenDatabase().SavedFilter.FindByModeForUser(txCtx, input.Mode, userID)
+		if findErr != nil {
+			return findErr
+		}
+		matches := make([]int, 0, 1)
+		for _, filter := range filters {
+			if reflect.DeepEqual(filter.FindFilter, input.FindFilter) &&
+				reflect.DeepEqual(filter.ObjectFilter, input.ObjectFilter) &&
+				reflect.DeepEqual(filter.UIOptions, input.UIOptions) {
+				matches = append(matches, filter.ID)
+			}
+		}
+		if len(matches) != 1 {
+			return authz.OwnershipError{}
+		}
+		return r.tokenDatabase().SavedFilter.SetDefaultForUser(txCtx, userID, input.Mode, &matches[0])
+	})
+	return err == nil, err
 }

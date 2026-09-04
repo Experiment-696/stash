@@ -2,7 +2,7 @@
 
 ## Financial
 
-Financial contributions are welcomed and are accepted using [Open Collective](https://opencollective.com/stashapp) or [GitHub Sponsors](https://github.com/sponsors/stashapp).
+Financial contributions are welcomed and are accepted using [Open Collective](https://opencollective.com/stashapp).
 
 ## Development-related
 

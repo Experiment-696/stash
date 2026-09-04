@@ -47,6 +47,7 @@ import { SidebarStudiosFilter } from "../List/Filters/StudiosFilter";
 import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { Button } from "react-bootstrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 
 const GroupList: React.FC<{
   groups: GQL.ListGroupDataFragment[];
@@ -147,15 +148,13 @@ const SidebarContent: React.FC<{
 
 interface IGroupListContext {
   filterHook?: (filter: ListFilterModel) => ListFilterModel;
+  defaultFilter?: ListFilterModel;
   view?: View;
   alterQuery?: boolean;
 }
 
 interface IGroupList extends IGroupListContext {
-  defaultSort?: string;
   fromGroupId?: string;
-  // specifies the sort by value that allows reordering
-  manualSortBy?: string;
   onMove?: (srcIds: string[], targetId: string, after: boolean) => void;
   otherOperations?: IItemListOperation<GQL.FindGroupsQueryResult>[];
 }
@@ -202,19 +201,23 @@ export const FilteredGroupList = PatchComponent(
   "FilteredGroupList",
   (props: IGroupList) => {
     const intl = useIntl();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const searchFocus = useFocus();
 
     const {
-      defaultSort,
       filterHook,
       view,
       alterQuery,
-      manualSortBy,
       onMove,
       fromGroupId,
       otherOperations: providedOperations = [],
+      defaultFilter,
     } = props;
+
+    const withSidebar = view !== View.GroupSubGroups;
+    const filterable = view !== View.GroupSubGroups;
+    const sortable = view !== View.GroupSubGroups;
 
     // States
     const {
@@ -229,7 +232,7 @@ export const FilteredGroupList = PatchComponent(
       useFilteredItemList({
         filterStateProps: {
           filterMode: GQL.FilterMode.Groups,
-          defaultSort,
+          defaultFilter,
           view,
           useURL: alterQuery,
         },
@@ -272,13 +275,13 @@ export const FilteredGroupList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -367,26 +370,25 @@ export const FilteredGroupList = PatchComponent(
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
     // render
     if (sidebarStateLoading) return null;
 
-    const canMove = manualSortBy && onMove && filter.sortBy === manualSortBy;
-
     const operations = (
       <ListOperations
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="group-list-operations-dropdown"
       />
     );
@@ -398,11 +400,13 @@ export const FilteredGroupList = PatchComponent(
           listSelect={listSelect}
           setFilter={setFilter}
           showEditFilter={showEditFilter}
-          onDelete={onDelete}
-          onEdit={onEdit}
+          onDelete={isAdmin ? onDelete : undefined}
+          onEdit={canEditMetadata ? onEdit : undefined}
           operationComponent={operations}
           view={view}
           zoomable
+          filterable={filterable}
+          sortable={sortable}
         />
 
         <FilterTags
@@ -434,7 +438,7 @@ export const FilteredGroupList = PatchComponent(
             selectedIds={selectedIds}
             onSelectChange={onSelectChange}
             fromGroupId={fromGroupId}
-            onMove={canMove ? onMove : undefined}
+            onMove={onMove}
           />
         </LoadedContent>
 
@@ -453,6 +457,10 @@ export const FilteredGroupList = PatchComponent(
         )}
       </>
     );
+
+    if (!withSidebar) {
+      return content;
+    }
 
     return (
       <div

@@ -55,6 +55,8 @@ ui/login/locales/*
 ####
 
 node_modules
+/ui/v2.5/build/
+/ui/v2.5/src/core/generated-graphql.ts
 
 *.db
 
@@ -64,3 +66,16 @@ node_modules
 dist
 .DS_Store
 /.local*
+/.bench/
+
+# Local credentials and workspace handoff archives
+.env
+.mcp.json
+.agentchattr/
+.agentchattr-venv/
+secret.txt
+*.tar.gz
+
+# Python bytecode caches
+__pycache__/
+*.py[cod]

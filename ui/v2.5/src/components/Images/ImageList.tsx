@@ -63,6 +63,7 @@ import { SidebarTagsFilter } from "../List/Filters/TagsFilter";
 import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { Button } from "react-bootstrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import { OrganizedCriterionOption } from "src/models/list-filter/criteria/organized";
 import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerAgeCriterionOption } from "src/models/list-filter/images";
@@ -101,7 +102,7 @@ const ImageWall: React.FC<IImageWallProps> = ({
 
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  const photos: {
+  let photos: {
     src: string;
     srcSet?: string | string[] | undefined;
     sizes?: string | string[] | undefined;
@@ -112,9 +113,9 @@ const ImageWall: React.FC<IImageWallProps> = ({
   }[] = [];
 
   images.forEach((image, index) => {
-    const imageData = {
+    let imageData = {
       src:
-        image.paths.preview !== ""
+        image.paths.preview != ""
           ? image.paths.preview!
           : image.paths.thumbnail!,
       width: image.visual_files?.[0]?.width ?? 0,
@@ -129,15 +130,15 @@ const ImageWall: React.FC<IImageWallProps> = ({
   });
 
   const showLightboxOnClick = useCallback(
-    (_event, { index }) => {
+    (event, { index }) => {
       handleImageOpen(index);
     },
     [handleImageOpen]
   );
 
   function columns(containerWidth: number) {
-    const preferredSize = zoomWidths[zoomIndex];
-    const columnCount = containerWidth / preferredSize;
+    let preferredSize = zoomWidths[zoomIndex];
+    let columnCount = containerWidth / preferredSize;
     return Math.round(columnCount);
   }
 
@@ -196,8 +197,8 @@ const ImageWall: React.FC<IImageWallProps> = ({
           photos={photos}
           renderImage={renderImage}
           onClick={showLightboxOnClick}
-          margin={uiConfig?.imageWallOptions?.margin}
-          direction={uiConfig?.imageWallOptions?.direction}
+          margin={uiConfig?.imageWallOptions?.margin!}
+          direction={uiConfig?.imageWallOptions?.direction!}
           columns={columns}
           targetRowHeight={targetRowHeight}
         />
@@ -212,7 +213,6 @@ interface IImageListImages {
   selectedIds: Set<string>;
   onChangePage: (page: number) => void;
   pageCount: number;
-  totalCount: number;
   onSelectChange: (id: string, selected: boolean, shiftKey: boolean) => void;
   slideshowRunning: boolean;
   setSlideshowRunning: (running: boolean) => void;
@@ -227,7 +227,6 @@ const ImageList: React.FC<IImageListImages> = PatchComponent(
     selectedIds,
     onChangePage,
     pageCount,
-    totalCount,
     onSelectChange,
     slideshowRunning,
     setSlideshowRunning,
@@ -271,14 +270,12 @@ const ImageList: React.FC<IImageListImages> = PatchComponent(
         page: filter.currentPage,
         pages: pageCount,
         pageSize: filter.itemsPerPage,
-        totalCount,
         slideshowEnabled: slideshowRunning,
         onClose: handleClose,
       };
     }, [
       images,
       pageCount,
-      totalCount,
       filter.currentPage,
       filter.itemsPerPage,
       slideshowRunning,
@@ -335,7 +332,7 @@ const ImageList: React.FC<IImageListImages> = PatchComponent(
     }
 
     // should not happen
-    return null;
+    return <></>;
   }
 );
 
@@ -517,6 +514,7 @@ export const FilteredImageList = PatchComponent(
   "FilteredImageList",
   (props: IImageList) => {
     const intl = useIntl();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const [slideshowRunning, setSlideshowRunning] = useState<boolean>(false);
 
@@ -640,13 +638,13 @@ export const FilteredImageList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -655,7 +653,7 @@ export const FilteredImageList = PatchComponent(
         Mousetrap.unbind("e");
         Mousetrap.unbind("d d");
       };
-    }, [hasSelection, onEdit, onDelete]);
+    }, [hasSelection, canEditMetadata, isAdmin, onEdit, onDelete]);
 
     const convertedExtraOperations: IListFilterOperation[] =
       providedOperations.map((o) => ({
@@ -700,16 +698,17 @@ export const FilteredImageList = PatchComponent(
             />
           );
         },
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -721,8 +720,8 @@ export const FilteredImageList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="image-list-operations-dropdown"
       />
     );
@@ -736,8 +735,8 @@ export const FilteredImageList = PatchComponent(
           listSelect={listSelect}
           setFilter={setFilter}
           showEditFilter={showEditFilter}
-          onDelete={onDelete}
-          onEdit={onEdit}
+          onDelete={isAdmin ? onDelete : undefined}
+          onEdit={canEditMetadata ? onEdit : undefined}
           operationComponent={operations}
           view={view}
           zoomable
@@ -773,7 +772,6 @@ export const FilteredImageList = PatchComponent(
             onChangePage={setPage}
             onSelectChange={onSelectChange}
             pageCount={pageCount}
-            totalCount={totalCount}
             selectedIds={selectedIds}
             slideshowRunning={slideshowRunning}
             setSlideshowRunning={setSlideshowRunning}

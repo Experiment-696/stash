@@ -44,8 +44,16 @@ import {
 } from "src/utils/imageWall";
 import { defaultMaxOptionsShown, defaultPreviewVolume } from "src/core/config";
 import { PatchComponent } from "src/patch";
+import {
+  getTrustedMenuItems,
+  insertTrustedMenuItems,
+} from "src/trustedExtensions";
+import {
+  resolveTrustedRegistryMenuSelection,
+  serializeTrustedRegistryMenuSelection,
+} from "src/trustedExtensionsRegistry";
 
-const allMenuItems = [
+const stockMenuItems = [
   { id: "scenes", headingID: "scenes" },
   { id: "images", headingID: "images" },
   { id: "groups", headingID: "groups" },
@@ -55,6 +63,9 @@ const allMenuItems = [
   { id: "studios", headingID: "studios" },
   { id: "tags", headingID: "tags" },
 ];
+
+const trustedMenuItems = getTrustedMenuItems();
+const allMenuItems = insertTrustedMenuItems(stockMenuItems, trustedMenuItems);
 
 export const SettingsInterfacePanel: React.FC = PatchComponent(
   "SettingsInterfacePanel",
@@ -82,7 +93,11 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
     const massagedMenuItems = useMemo(() => {
       if (!iface.menuItems) return iface.menuItems;
 
-      return massageMenuItems(iface.menuItems);
+      return resolveTrustedRegistryMenuSelection(
+        trustedMenuItems,
+        massageMenuItems(iface.menuItems),
+        true
+      );
     }, [iface.menuItems, massageMenuItems]);
 
     const {
@@ -171,7 +186,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
       if (!v) return;
       try {
         // creates a function from the string to validate it but does not execute it
-        // XXbiome-ignore lint/nursery/noImpliedEval: intentional
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval
         new Function(v);
       } catch (e) {
         throw new Error(
@@ -278,7 +293,13 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               items={allMenuItems}
               checkedIds={massagedMenuItems ?? undefined}
               onChange={(v) =>
-                saveInterface({ menuItems: massageMenuItems(v) })
+                saveInterface({
+                  menuItems: serializeTrustedRegistryMenuSelection(
+                    trustedMenuItems,
+                    massageMenuItems(v),
+                    true
+                  ),
+                })
               }
             />
           </div>
@@ -558,14 +579,6 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
             subHeadingID="config.ui.slideshow_delay.description"
             value={iface.imageLightbox?.slideshowDelay ?? undefined}
             onChange={(v) => saveLightboxSettings({ slideshowDelay: v })}
-          />
-
-          <BooleanSetting
-            id="autostart-gallery-slideshow"
-            headingID="config.ui.autostart_gallery_slideshow.heading"
-            subHeadingID="config.ui.autostart_gallery_slideshow.description"
-            checked={ui.autostartGallerySlideshow ?? undefined}
-            onChange={(v) => saveUI({ autostartGallerySlideshow: v })}
           />
 
           <SelectSetting
@@ -863,7 +876,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               />
             )}
             renderValue={() => {
-              return null;
+              return <></>;
             }}
           />
         </SettingSection>
@@ -900,7 +913,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               </>
             )}
             renderValue={() => {
-              return null;
+              return <></>;
             }}
           />
         </SettingSection>
@@ -937,7 +950,7 @@ export const SettingsInterfacePanel: React.FC = PatchComponent(
               </>
             )}
             renderValue={() => {
-              return null;
+              return <></>;
             }}
           />
         </SettingSection>

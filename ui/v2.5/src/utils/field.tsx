@@ -1,4 +1,3 @@
-import { uniq } from "lodash-es";
 import React from "react";
 import { FormattedMessage } from "react-intl";
 import { Link } from "react-router-dom";
@@ -117,7 +116,7 @@ export const URLsField: React.FC<IURLsField> = ({
   target = "_blank",
   internal,
 }) => {
-  if (!urls?.length) {
+  if (!urls || !urls.length) {
     return null;
   }
 
@@ -126,20 +125,20 @@ export const URLsField: React.FC<IURLsField> = ({
   );
 
   const renderUrls = () => {
-    return uniq(urls).map((url) => {
-      if (!url) return null;
+    return urls.map((url, i) => {
+      if (!url) return;
 
-      const children = truncate ? <TruncatedText key={url} text={url} /> : url;
+      const children = truncate ? <TruncatedText text={url} /> : url;
 
       if (internal) {
         return (
-          <Link key={url} to={url} target={target}>
+          <Link key={i} to={url} target={target}>
             {children}
           </Link>
         );
       } else {
         return (
-          <ExternalLink key={url} href={url} target={target}>
+          <ExternalLink key={i} href={url} target={target}>
             {children}
           </ExternalLink>
         );

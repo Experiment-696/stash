@@ -1,0 +1,6 @@
+type MigrationStatus {
+  status: SystemStatusEnum!
+  currentSchema: Int!
+  requiredSchema: Int!
+  backupWillBeCreated: Boolean!
+}

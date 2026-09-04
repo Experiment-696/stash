@@ -51,7 +51,7 @@ func (tq *TaskQueue) executer(ctx context.Context) {
 	defer tq.wg.Wait()
 	for task := range tq.tasks {
 		if IsCancelled(ctx) {
-			continue // allow channel to continue draining until Close()
+			return
 		}
 
 		tt := task

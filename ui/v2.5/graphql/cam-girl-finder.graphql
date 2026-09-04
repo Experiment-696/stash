@@ -1,0 +1,36 @@
+query CamGirlFinderConfig {
+  camGirlFinderConfig {
+    enabled
+    requestIntervalMS
+    timeoutSeconds
+    resultLimit
+  }
+}
+mutation CamGirlFinderConfigure($input: CamGirlFinderConfigInput!) {
+  camGirlFinderConfigure(input: $input) {
+    enabled
+    requestIntervalMS
+    timeoutSeconds
+    resultLimit
+  }
+}
+mutation CamGirlFinderSearch($query: String!) {
+  camGirlFinderSearch(query: $query) {
+    evidenceKey
+    platform
+    username
+    sourceURL
+    observedAt
+    payloadJSON
+  }
+}
+mutation CamGirlFinderIngestPending($modelID: ID!, $query: String!, $evidenceKeys: [String!]!) {
+  camGirlFinderIngestPending(modelID: $modelID, query: $query, evidenceKeys: $evidenceKeys) {
+    evidenceKey
+    evidenceID
+    changeID
+    status
+    disposition
+    reason
+  }
+}

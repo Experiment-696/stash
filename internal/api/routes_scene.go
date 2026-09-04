@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/internal/static"
@@ -56,36 +57,37 @@ func (rs sceneRoutes) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Route("/{sceneId}", func(r chi.Router) {
-		r.Use(rs.SceneCtx)
-
 		// streaming endpoints
-		r.Get("/stream", rs.StreamDirect)
-		r.Get("/stream.mp4", rs.StreamMp4)
-		r.Get("/stream.webm", rs.StreamWebM)
-		r.Get("/stream.mkv", rs.StreamMKV)
-		r.Get("/stream.m3u8", rs.StreamHLS)
-		r.Get("/stream.m3u8/{segment}.ts", rs.StreamHLSSegment)
-		r.Get("/stream.mpd", rs.StreamDASH)
-		r.Get("/stream.mpd/{segment}_v.webm", rs.StreamDASHVideoSegment)
-		r.Get("/stream.mpd/{segment}_a.webm", rs.StreamDASHAudioSegment)
+		stream := r.With(requireCapability(authz.MediaStream), rs.SceneCtx)
+		stream.Get("/stream", rs.StreamDirect)
+		stream.Get("/stream.mp4", rs.StreamMp4)
+		stream.Get("/stream.webm", rs.StreamWebM)
+		stream.Get("/stream.mkv", rs.StreamMKV)
+		stream.Get("/stream.m3u8", rs.StreamHLS)
+		stream.Get("/stream.m3u8/{segment}.ts", rs.StreamHLSSegment)
+		stream.Get("/stream.mpd", rs.StreamDASH)
+		stream.Get("/stream.mpd/{segment}_v.webm", rs.StreamDASHVideoSegment)
+		stream.Get("/stream.mpd/{segment}_a.webm", rs.StreamDASHAudioSegment)
 
-		r.Get("/screenshot", rs.Screenshot)
-		r.Get("/preview", rs.Preview)
-		r.Get("/webp", rs.Webp)
-		r.Get("/vtt/chapter", rs.VttChapter)
-		r.Get("/vtt/thumbs", rs.VttThumbs)
-		r.Get("/vtt/sprite", rs.VttSprite)
-		r.Get("/funscript", rs.Funscript)
-		r.Get("/interactive_csv", rs.InteractiveCSV)
-		r.Get("/interactive_heatmap", rs.InteractiveHeatmap)
-		r.Get("/caption", rs.CaptionLang)
+		library := r.With(requireCapability(authz.LibraryRead), rs.SceneCtx)
+		library.Get("/screenshot", rs.Screenshot)
+		library.Get("/preview", rs.Preview)
+		library.Get("/webp", rs.Webp)
+		library.Get("/vtt/chapter", rs.VttChapter)
+		library.Get("/vtt/thumbs", rs.VttThumbs)
+		library.Get("/vtt/sprite", rs.VttSprite)
+		library.Get("/funscript", rs.Funscript)
+		library.Get("/interactive_csv", rs.InteractiveCSV)
+		library.Get("/interactive_heatmap", rs.InteractiveHeatmap)
+		stream.Get("/caption", rs.CaptionLang)
 
-		r.Get("/scene_marker/{sceneMarkerId}/stream", rs.SceneMarkerStream)
-		r.Get("/scene_marker/{sceneMarkerId}/preview", rs.SceneMarkerPreview)
-		r.Get("/scene_marker/{sceneMarkerId}/screenshot", rs.SceneMarkerScreenshot)
+		stream.Get("/scene_marker/{sceneMarkerId}/stream", rs.SceneMarkerStream)
+		library.Get("/scene_marker/{sceneMarkerId}/preview", rs.SceneMarkerPreview)
+		library.Get("/scene_marker/{sceneMarkerId}/screenshot", rs.SceneMarkerScreenshot)
 	})
-	r.Get("/{sceneHash}_thumbs.vtt", rs.VttThumbs)
-	r.Get("/{sceneHash}_sprite.jpg", rs.VttSprite)
+	library := r.With(requireCapability(authz.LibraryRead))
+	library.Get("/{sceneHash}_thumbs.vtt", rs.VttThumbs)
+	library.Get("/{sceneHash}_sprite.jpg", rs.VttSprite)
 
 	return r
 }

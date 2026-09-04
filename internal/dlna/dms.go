@@ -264,7 +264,7 @@ type Server struct {
 	rootDescXML    []byte
 	rootDeviceUUID string
 	closed         chan struct{}
-	ssdpStopped    chan struct{}
+	serveDone      chan struct{}
 	// The service SOAP handler keyed by service URN.
 	services   map[string]UPnPService
 	LogHeaders bool
@@ -282,6 +282,12 @@ type Server struct {
 	VideoSortOrder     string
 
 	subscribeLock sync.Mutex
+	lifecycleOnce sync.Once
+	closeOnce     sync.Once
+	lifecycleMu   sync.Mutex
+	serveStarted  bool
+	closeErr      error
+	serveInitHook func()
 }
 
 // UPnP SOAP service.
@@ -669,14 +675,42 @@ func (me *Server) initServices() {
 	}
 }
 
+func (me *Server) initLifecycle() {
+	me.lifecycleOnce.Do(func() {
+		me.closed = make(chan struct{})
+		me.serveDone = make(chan struct{})
+	})
+}
+
 func (me *Server) Serve() (err error) {
+	me.initLifecycle()
+	me.lifecycleMu.Lock()
+	if me.serveStarted {
+		me.lifecycleMu.Unlock()
+		return fmt.Errorf("DLNA server Serve called more than once")
+	}
+	me.serveStarted = true
+	me.lifecycleMu.Unlock()
+	defer close(me.serveDone)
+	if me.serveInitHook != nil {
+		me.serveInitHook()
+	}
 	me.initServices()
-	me.closed = make(chan struct{})
+	me.lifecycleMu.Lock()
 	if me.HTTPConn == nil {
 		me.HTTPConn, err = net.Listen("tcp", "")
 		if err != nil {
+			me.lifecycleMu.Unlock()
 			return
 		}
+	}
+	conn := me.HTTPConn
+	me.lifecycleMu.Unlock()
+	select {
+	case <-me.closed:
+		_ = conn.Close()
+		return nil
+	default:
 	}
 	if me.Interfaces == nil {
 		ifs, err := net.Interfaces()
@@ -728,21 +762,31 @@ func (me *Server) Serve() (err error) {
 		return
 	}
 	me.rootDescXML = append([]byte(`<?xml version="1.0"?>`), me.rootDescXML...)
-	logger.Debug("HTTP srv on", me.HTTPConn.Addr())
+	logger.Debug("HTTP srv on", conn.Addr())
 	me.initMux(me.httpServeMux)
-	me.ssdpStopped = make(chan struct{})
+	ssdpStopped := make(chan struct{})
 	go func() {
 		me.doSSDP()
-		close(me.ssdpStopped)
+		close(ssdpStopped)
 	}()
-	return me.serveHTTP()
+	err = me.serveHTTP()
+	<-ssdpStopped
+	return err
 }
 
 func (me *Server) Close() (err error) {
-	close(me.closed)
-	err = me.HTTPConn.Close()
-	<-me.ssdpStopped
-	return
+	me.initLifecycle()
+	me.closeOnce.Do(func() {
+		close(me.closed)
+		me.lifecycleMu.Lock()
+		conn := me.HTTPConn
+		me.lifecycleMu.Unlock()
+		if conn != nil {
+			me.closeErr = conn.Close()
+		}
+	})
+	<-me.serveDone
+	return me.closeErr
 }
 
 func didl_lite(chardata string) string {

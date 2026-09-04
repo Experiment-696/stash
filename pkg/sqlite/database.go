@@ -34,7 +34,7 @@ const (
 	cacheSizeEnv = "STASH_SQLITE_CACHE_SIZE"
 )
 
-var appSchemaVersion uint = 85
+var appSchemaVersion uint = 95
 
 //go:embed migrations/*.sql
 var migrationsBox embed.FS
@@ -44,6 +44,15 @@ var (
 	// initialized, usually due to an incomplete configuration.
 	ErrDatabaseNotInitialized = errors.New("database not initialized")
 )
+
+// DatabaseUnavailableError reports that transaction connections are not open,
+// commonly because an existing database still requires migration.
+type DatabaseUnavailableError struct{ Cause error }
+
+func (e *DatabaseUnavailableError) Error() string {
+	return "database is unavailable until initialization or migration completes"
+}
+func (e *DatabaseUnavailableError) Unwrap() error { return e.Cause }
 
 // ErrMigrationNeeded indicates that a database migration is needed
 // before the database can be initialized
@@ -79,6 +88,14 @@ type storeRepository struct {
 	Studio         *StudioStore
 	Tag            *TagStore
 	Group          *GroupStore
+	User           *UserStore
+	Session        *SessionStore
+	APIToken       *APITokenStore
+	Activity       *ActivityStore
+	PersonalState  *PersonalStateStore
+	Preference     *PreferenceStore
+	Audit          *AuditStore
+	CamShow        *CamShowStore
 }
 
 type Database struct {
@@ -115,6 +132,14 @@ func NewDatabase() *Database {
 		Performer:      performerStore,
 		Studio:         studioStore,
 		Tag:            tagStore,
+		User:           &UserStore{},
+		Session:        &SessionStore{},
+		APIToken:       &APITokenStore{},
+		Activity:       &ActivityStore{},
+		PersonalState:  &PersonalStateStore{},
+		Preference:     &PreferenceStore{},
+		Audit:          &AuditStore{},
+		CamShow:        &CamShowStore{},
 		Group:          NewGroupStore(blobStore),
 		SavedFilter:    NewSavedFilterStore(),
 	}
@@ -389,7 +414,70 @@ func (db *Database) Anonymise(outPath string) error {
 
 func (db *Database) RestoreFromBackup(backupPath string) error {
 	logger.Infof("Restoring backup database %s into %s", backupPath, db.dbPath)
-	return os.Rename(backupPath, db.dbPath)
+	databaseInfo, err := os.Stat(db.dbPath)
+	if err != nil {
+		return fmt.Errorf("stating database before restore: %w", err)
+	}
+
+	// A configured backup directory may be on a different filesystem from the
+	// database. Stage a copy beside the database so the final replacement never
+	// depends on a cross-device rename. Closing first also prevents live SQLite
+	// handles from continuing to reference the replaced inode.
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("closing database before restore: %w", err)
+	}
+
+	dbDir := filepath.Dir(db.dbPath)
+	staged, err := os.CreateTemp(dbDir, ".stash-restore-*.sqlite")
+	if err != nil {
+		return fmt.Errorf("creating staged restore file: %w", err)
+	}
+	stagedPath := staged.Name()
+	if err := staged.Close(); err != nil {
+		_ = os.Remove(stagedPath)
+		return fmt.Errorf("closing staged restore file: %w", err)
+	}
+	if err := os.Remove(stagedPath); err != nil {
+		return fmt.Errorf("preparing staged restore file: %w", err)
+	}
+	defer os.Remove(stagedPath)
+
+	if err := fsutil.CopyFile(backupPath, stagedPath); err != nil {
+		return fmt.Errorf("staging backup for restore: %w", err)
+	}
+	if err := os.Chmod(stagedPath, databaseInfo.Mode().Perm()); err != nil {
+		return fmt.Errorf("preserving database permissions on staged restore: %w", err)
+	}
+
+	for _, suffix := range []string{"-shm", "-wal"} {
+		if err := os.Remove(db.dbPath + suffix); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing stale database sidecar %s: %w", suffix, err)
+		}
+	}
+
+	if err := os.Rename(stagedPath, db.dbPath); err != nil {
+		return fmt.Errorf("replacing database from staged backup: %w", err)
+	}
+	version, err := db.getDatabaseSchemaVersion()
+	if err != nil {
+		return fmt.Errorf("refreshing restored database schema version: %w", err)
+	}
+	db.schemaVersion = version
+
+	// A restored current-schema database must not remain attached to the old
+	// inode. Older restored schemas deliberately stay uninitialised so the
+	// migration-only retry path remains the sole available surface.
+	if !db.needsMigration() {
+		if err := db.ReInitialise(); err != nil {
+			return fmt.Errorf("reinitialising restored database: %w", err)
+		}
+	}
+
+	if err := os.Remove(backupPath); err != nil {
+		return fmt.Errorf("removing consumed database backup: %w", err)
+	}
+
+	return nil
 }
 
 func (db *Database) AppSchemaVersion() uint {

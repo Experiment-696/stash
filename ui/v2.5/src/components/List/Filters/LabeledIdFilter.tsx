@@ -20,9 +20,9 @@ import {
   FilterMode,
   GalleryFilterType,
   GroupFilterType,
-  HierarchicalCountInput,
   ImageFilterType,
   InputMaybe,
+  IntCriterionInput,
   PerformerFilterType,
   SceneFilterType,
   SceneMarkerFilterType,
@@ -223,10 +223,10 @@ export function useSelectionState(props: {
     }));
   }, [criterion.value.excluded]);
 
-  const includingOnly = modifier === CriterionModifier.Equals;
+  const includingOnly = modifier == CriterionModifier.Equals;
   const excludingOnly =
-    modifier === CriterionModifier.Excludes ||
-    modifier === CriterionModifier.NotEquals;
+    modifier == CriterionModifier.Excludes ||
+    modifier == CriterionModifier.NotEquals;
 
   const onSelect = useCallback(
     (v: Option, exclude: boolean) => {
@@ -508,7 +508,7 @@ export function useLabeledIdFilterState(props: {
   };
 }
 
-export function makeQueryVariables(query: string, extraProps: object) {
+export function makeQueryVariables(query: string, extraProps: {}) {
   return {
     filter: {
       q: query,
@@ -520,18 +520,18 @@ export function makeQueryVariables(query: string, extraProps: object) {
 
 interface IFilterType {
   scenes_filter?: InputMaybe<SceneFilterType>;
-  scene_count?: InputMaybe<HierarchicalCountInput>;
+  scene_count?: InputMaybe<IntCriterionInput>;
   performers_filter?: InputMaybe<PerformerFilterType>;
-  performer_count?: InputMaybe<HierarchicalCountInput>;
+  performer_count?: InputMaybe<IntCriterionInput>;
   galleries_filter?: InputMaybe<GalleryFilterType>;
-  gallery_count?: InputMaybe<HierarchicalCountInput>;
+  gallery_count?: InputMaybe<IntCriterionInput>;
   images_filter?: InputMaybe<ImageFilterType>;
-  image_count?: InputMaybe<HierarchicalCountInput>;
+  image_count?: InputMaybe<IntCriterionInput>;
   groups_filter?: InputMaybe<GroupFilterType>;
-  group_count?: InputMaybe<HierarchicalCountInput>;
+  group_count?: InputMaybe<IntCriterionInput>;
   studios_filter?: InputMaybe<StudioFilterType>;
-  studio_count?: InputMaybe<HierarchicalCountInput>;
-  marker_count?: InputMaybe<HierarchicalCountInput>;
+  studio_count?: InputMaybe<IntCriterionInput>;
+  marker_count?: InputMaybe<IntCriterionInput>;
   markers_filter?: InputMaybe<SceneMarkerFilterType>;
 }
 
@@ -554,7 +554,6 @@ export function setObjectFilter(
         out.scene_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -566,7 +565,6 @@ export function setObjectFilter(
         out.performer_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -578,7 +576,6 @@ export function setObjectFilter(
         out.gallery_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -590,7 +587,6 @@ export function setObjectFilter(
         out.image_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -602,7 +598,6 @@ export function setObjectFilter(
         out.group_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -614,7 +609,6 @@ export function setObjectFilter(
         out.studio_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }
@@ -626,7 +620,6 @@ export function setObjectFilter(
         out.marker_count = {
           modifier: CriterionModifier.GreaterThan,
           value: 0,
-          depth: -1,
         };
         break;
       }

@@ -13,10 +13,12 @@ export const PerformerSubmitButton: React.FC<IPerformerOperationsProps> = ({
 }) => {
   const [showDraftModal, setShowDraftModal] = useState(false);
 
-  const { data } = GQL.useConfigurationQuery();
+  const { data: meData, loading } = GQL.useMeQuery({ fetchPolicy: "no-cache" });
+  const isAdmin = meData?.me.role === "ADMIN";
+  const { data } = GQL.useConfigurationQuery({ skip: loading || !isAdmin });
   const boxes = data?.configuration?.general?.stashBoxes ?? [];
 
-  if (boxes.length === 0) return null;
+  if (!isAdmin || boxes.length === 0) return null;
 
   return (
     <>

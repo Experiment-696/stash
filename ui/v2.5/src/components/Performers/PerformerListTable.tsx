@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/control-has-associated-label */
+
 import React from "react";
 import { useIntl } from "react-intl";
 import { Button } from "react-bootstrap";
@@ -6,7 +8,10 @@ import * as GQL from "src/core/generated-graphql";
 import { Icon } from "../Shared/Icon";
 import NavUtils from "src/utils/navigation";
 import { faHeart } from "@fortawesome/free-solid-svg-icons";
-import { usePerformerUpdate } from "src/core/StashService";
+import {
+  usePerformerSetFavorite,
+  usePerformerSetRating,
+} from "src/core/StashService";
 import { useTableColumns } from "src/hooks/useTableColumns";
 import { RatingSystem } from "../Shared/Rating/RatingSystem";
 import cx from "classnames";
@@ -34,16 +39,15 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 ) => {
   const intl = useIntl();
 
-  const [updatePerformer] = usePerformerUpdate();
+  const [setPerformerFavorite] = usePerformerSetFavorite();
+  const [setPerformerRating] = usePerformerSetRating();
 
   function setRating(v: number | null, performerId: string) {
     if (performerId) {
-      updatePerformer({
+      setPerformerRating({
         variables: {
-          input: {
-            id: performerId,
-            rating100: v,
-          },
+          id: performerId,
+          rating100: v,
         },
       });
     }
@@ -51,12 +55,10 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
 
   function setFavorite(v: boolean, performerId: string) {
     if (performerId) {
-      updatePerformer({
+      setPerformerFavorite({
         variables: {
-          input: {
-            id: performerId,
-            favorite: v,
-          },
+          id: performerId,
+          favorite: v,
         },
       });
     }
@@ -87,7 +89,7 @@ export const PerformerListTable: React.FC<IPerformerListTableProps> = (
   );
 
   const AliasesCell = (performer: GQL.PerformerDataFragment) => {
-    const aliases = performer.alias_list ? performer.alias_list.join(", ") : "";
+    let aliases = performer.alias_list ? performer.alias_list.join(", ") : "";
     return (
       <span className="ellips-data" title={aliases}>
         {aliases}

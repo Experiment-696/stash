@@ -52,7 +52,8 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 
 const isScraper = (
   scraper: GQL.Scraper | GQL.StashBox
@@ -79,6 +80,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   setEncodingImage,
 }) => {
   const Toast = useToast();
+  const { isAdmin } = useRoleCapabilities();
 
   const isNew = performer.id === undefined;
 
@@ -164,11 +166,23 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
   const [customFieldsError, setCustomFieldsError] = useState<string>();
 
   function submit(values: InputValues) {
+    const castValues = schema.cast(values);
     const input = {
-      ...schema.cast(values),
+      ...castValues,
       custom_fields: formatCustomFieldInput(isNew, values.custom_fields),
     };
-    onSave(input);
+    if (isAdmin) {
+      onSave(input);
+      return;
+    }
+
+    const {
+      image: _image,
+      ignore_auto_tag: _ignoreAutoTag,
+      custom_fields: _customFields,
+      ...descriptive
+    } = input;
+    onSave(descriptive as GQL.PerformerCreateInput);
   }
 
   const formik = useFormik<InputValues>({
@@ -346,7 +360,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     ImageUtils.onImageChange(event, onImageLoad);
   }
 
-  async function onSave(input: InputValues, andNew?: boolean) {
+  async function onSave(input: GQL.PerformerCreateInput, andNew?: boolean) {
     setIsLoading(true);
     try {
       await onSubmit(input, andNew);
@@ -447,7 +461,7 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
     setIsLoading(true);
     try {
       const result = await queryScrapePerformerURL(url);
-      if (!result.data?.scrapePerformerURL) {
+      if (!result.data || !result.data.scrapePerformerURL) {
         return;
       }
 
@@ -599,20 +613,24 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
           </Button>
         ) : null}
         {renderScraperMenu()}
-        <ImageInput
-          isEditing
-          onImageChange={onImageChange}
-          onImageURL={onImageLoad}
-        />
-        <div>
-          <Button
-            className="mr-2"
-            variant="danger"
-            onClick={() => formik.setFieldValue("image", null)}
-          >
-            <FormattedMessage id="actions.clear_image" />
-          </Button>
-        </div>
+        {isAdmin && (
+          <ImageInput
+            isEditing
+            onImageChange={onImageChange}
+            onImageURL={onImageLoad}
+          />
+        )}
+        {isAdmin && (
+          <div>
+            <Button
+              className="mr-2"
+              variant="danger"
+              onClick={() => formik.setFieldValue("image", null)}
+            >
+              <FormattedMessage id="actions.clear_image" />
+            </Button>
+          </div>
+        )}
         {isNew ? (
           <SplitButton
             id="save-split-button"
@@ -769,18 +787,19 @@ export const PerformerEditPanel: React.FC<IPerformerDetails> = ({
           </Button>
         )}
 
-        <hr />
-
-        {renderInputField("ignore_auto_tag", "checkbox")}
-
-        <hr />
-
-        <CustomFieldsInput
-          values={formik.values.custom_fields}
-          onChange={(v) => formik.setFieldValue("custom_fields", v)}
-          error={customFieldsError}
-          setError={(e) => setCustomFieldsError(e)}
-        />
+        {isAdmin && (
+          <>
+            <hr />
+            {renderInputField("ignore_auto_tag", "checkbox")}
+            <hr />
+            <CustomFieldsInput
+              values={formik.values.custom_fields}
+              onChange={(v) => formik.setFieldValue("custom_fields", v)}
+              error={customFieldsError}
+              setError={(e) => setCustomFieldsError(e)}
+            />
+          </>
+        )}
 
         {renderButtons("mt-3")}
       </Form>

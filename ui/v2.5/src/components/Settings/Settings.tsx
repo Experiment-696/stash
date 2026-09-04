@@ -17,15 +17,22 @@ import { SettingsServicesPanel } from "./SettingsServicesPanel";
 import { SettingsContext, useSettings } from "./context";
 import { SettingsLibraryPanel } from "./SettingsLibraryPanel";
 import { SettingsSecurityPanel } from "./SettingsSecurityPanel";
+import { SettingsVLMPanel } from "./SettingsVLMPanel";
+import { SettingsUsersPanel } from "./SettingsUsersPanel";
+import { SettingsAccountPanel } from "./SettingsAccountPanel";
+import { useMeQuery } from "src/core/generated-graphql";
 import Changelog from "../Changelog/Changelog";
 import { TroubleshootingModeButton } from "../TroubleshootingMode/TroubleshootingModeButton";
 import { useTroubleshootingMode } from "../TroubleshootingMode/useTroubleshootingMode";
 
 const validTabs = [
+  "account",
   "tasks",
   "library",
   "interface",
   "security",
+  "users",
+  "ai-vlm",
   "metadata-providers",
   "services",
   "system",
@@ -37,18 +44,20 @@ const validTabs = [
 ] as const;
 type TabKey = (typeof validTabs)[number];
 
-const defaultTab: TabKey = "tasks";
+const defaultTab: TabKey = "account";
 
 function isTabKey(tab: string | null): tab is TabKey {
   return validTabs.includes(tab as TabKey);
 }
 
-const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
+const SettingTabs: React.FC<{ tab: TabKey; isAdmin: boolean }> = ({
+  tab,
+  isAdmin,
+}) => {
   const { advancedMode, setAdvancedMode } = useSettings();
   const { isActive: troubleshootingModeActive } = useTroubleshootingMode();
 
   const titleProps = useTitleProps({ id: "settings" });
-
   return (
     <Tab.Container activeKey={tab} id="configuration-tabs">
       <Helmet {...titleProps} />
@@ -56,12 +65,24 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
         <Col id="settings-menu-container" sm={3} md={3} xl={2}>
           <Nav variant="pills" className="flex-column">
             <Nav.Item>
+              <LinkContainer to="/settings?tab=account">
+                <Nav.Link eventKey="account">Account</Nav.Link>
+              </LinkContainer>
+            </Nav.Item>
+            <Nav.Item>
               <LinkContainer to="/settings?tab=tasks">
                 <Nav.Link eventKey="tasks">
                   <FormattedMessage id="config.categories.tasks" />
                 </Nav.Link>
               </LinkContainer>
             </Nav.Item>
+            {isAdmin && (
+              <Nav.Item>
+                <LinkContainer to="/settings?tab=users">
+                  <Nav.Link eventKey="users">Users</Nav.Link>
+                </LinkContainer>
+              </Nav.Item>
+            )}
             <Nav.Item>
               <LinkContainer to="/settings?tab=library">
                 <Nav.Link eventKey="library">
@@ -81,6 +102,11 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
                 <Nav.Link eventKey="security">
                   <FormattedMessage id="config.categories.security" />
                 </Nav.Link>
+              </LinkContainer>
+            </Nav.Item>
+            <Nav.Item>
+              <LinkContainer to="/settings?tab=ai-vlm">
+                <Nav.Link eventKey="ai-vlm">AI &amp; VLM</Nav.Link>
               </LinkContainer>
             </Nav.Item>
             <Nav.Item>
@@ -162,6 +188,9 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
           xl={{ offset: 2 }}
         >
           <Tab.Content className="mx-auto">
+            <Tab.Pane eventKey="account">
+              <SettingsAccountPanel />
+            </Tab.Pane>
             <Tab.Pane eventKey="library">
               <SettingsLibraryPanel />
             </Tab.Pane>
@@ -170,6 +199,14 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
             </Tab.Pane>
             <Tab.Pane eventKey="security">
               <SettingsSecurityPanel />
+            </Tab.Pane>
+            {isAdmin && (
+              <Tab.Pane eventKey="users" unmountOnExit>
+                <SettingsUsersPanel />
+              </Tab.Pane>
+            )}
+            <Tab.Pane eventKey="ai-vlm" unmountOnExit>
+              <SettingsVLMPanel />
             </Tab.Pane>
             <Tab.Pane eventKey="tasks">
               <SettingsTasksPanel />
@@ -208,8 +245,29 @@ const SettingTabs: React.FC<{ tab: TabKey }> = ({ tab }) => {
 export const Settings: React.FC = () => {
   const location = useLocation();
   const tab = new URLSearchParams(location.search).get("tab");
+  const { data: meData, loading } = useMeQuery({ fetchPolicy: "no-cache" });
+  const isAdmin = meData?.me.role === "ADMIN" && meData.me.status === "ACTIVE";
 
-  if (!isTabKey(tab)) {
+  if (loading) {
+    return null;
+  }
+
+  if (tab === "cam-shows" && isAdmin) {
+    return (
+      <Redirect
+        to={{
+          ...location,
+          search: "tab=library",
+          hash: "#cam-show-classification",
+        }}
+      />
+    );
+  }
+
+  if (
+    !isTabKey(tab) ||
+    (!isAdmin && tab !== "account" && tab !== "tasks")
+  ) {
     return (
       <Redirect
         to={{
@@ -221,8 +279,8 @@ export const Settings: React.FC = () => {
   }
 
   return (
-    <SettingsContext>
-      <SettingTabs tab={tab} />
+    <SettingsContext enabled={isAdmin}>
+      <SettingTabs tab={tab} isAdmin={isAdmin} />
     </SettingsContext>
   );
 };

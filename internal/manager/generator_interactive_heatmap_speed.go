@@ -48,12 +48,6 @@ type Action struct {
 	Speed float64
 }
 
-var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
-
-func unmarshalFunscriptData(data []byte, funscript *Script) error {
-	return json.Unmarshal(bytes.TrimPrefix(data, utf8BOM), funscript)
-}
-
 type GradientTable []struct {
 	Col    colorful.Color
 	Pos    float64
@@ -102,7 +96,7 @@ func (g *InteractiveHeatmapSpeedGenerator) LoadFunscriptData(path string, sceneD
 	}
 
 	var funscript Script
-	err = unmarshalFunscriptData(data, &funscript)
+	err = json.Unmarshal(data, &funscript)
 	if err != nil {
 		return Script{}, err
 	}
@@ -376,7 +370,7 @@ func LoadFunscriptData(path string) (Script, error) {
 	}
 
 	var funscript Script
-	err = unmarshalFunscriptData(data, &funscript)
+	err = json.Unmarshal(data, &funscript)
 	if err != nil {
 		return Script{}, err
 	}
@@ -414,7 +408,7 @@ func ConvertFunscriptToCSV(funscriptPath string) ([]byte, error) {
 		}
 
 		// I don't know whether the csv format requires int or float, so for now we'll use int
-		fmt.Fprintf(&buffer, "%d,%d\r\n", int(math.Round(action.At)), pos)
+		buffer.WriteString(fmt.Sprintf("%d,%d\r\n", int(math.Round(action.At)), pos))
 	}
 	return buffer.Bytes(), nil
 }

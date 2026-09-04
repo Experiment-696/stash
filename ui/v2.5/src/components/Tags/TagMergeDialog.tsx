@@ -15,7 +15,7 @@ import {
   ObjectListScrapeResult,
   ScrapeResult,
 } from "../Shared/ScrapeDialog/scrapeResult";
-import { idToStoredID, sortStoredIdObjects } from "src/utils/data";
+import { sortStoredIdObjects } from "src/utils/data";
 import ImageUtils from "src/utils/image";
 import { uniq } from "lodash-es";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
@@ -92,6 +92,13 @@ const TagMergeDetails: React.FC<ITagMergeDetailsProps> = ({
   const [customFields, setCustomFields] = useState<CustomFieldScrapeResults>(
     new Map()
   );
+
+  function idToStoredID(o: { id: string; name: string }) {
+    return {
+      stored_id: o.id,
+      name: o.name,
+    };
+  }
 
   // calculate the values for everything
   // uses the first set value for single value fields, and combines all
@@ -176,7 +183,8 @@ const TagMergeDetails: React.FC<ITagMergeDetailsProps> = ({
       new ScrapeResult(
         dest.stash_ids,
         all
-          .flatMap((s) => s.stash_ids)
+          .map((s) => s.stash_ids)
+          .flat()
           .filter((s, index, a) => {
             // remove entries with duplicate endpoints
             return index === a.findIndex((ss) => ss.endpoint === s.endpoint);
@@ -313,14 +321,9 @@ const TagMergeDetails: React.FC<ITagMergeDetailsProps> = ({
           title={intl.formatMessage({ id: "stash_id" })}
           result={stashIDs}
           originalField={
-            <StashIDsField
-              values={stashIDs?.originalValue ?? []}
-              linkType="tags"
-            />
+            <StashIDsField values={stashIDs?.originalValue ?? []} />
           }
-          newField={
-            <StashIDsField values={stashIDs?.newValue ?? []} linkType="tags" />
-          }
+          newField={<StashIDsField values={stashIDs?.newValue ?? []} />}
           onChange={(value) => setStashIDs(value)}
           alwaysShow={
             !!stashIDs.originalValue?.length || !!stashIDs.newValue?.length

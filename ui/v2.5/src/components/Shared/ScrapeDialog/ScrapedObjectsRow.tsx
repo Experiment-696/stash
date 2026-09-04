@@ -273,7 +273,6 @@ export const ScrapedPerformersRow: React.FC<
         }}
         values={selectValue}
         ageFromDate={ageFromDate}
-        hoverPlacementLabel="bottom"
       />
     );
   }

@@ -34,20 +34,16 @@ export const StashIDPill: React.FC<{
 
 interface IStashIDsField {
   values: StashId[];
-  linkType: LinkType;
 }
 
-export const StashIDsField: React.FC<IStashIDsField> = ({
-  values,
-  linkType,
-}) => {
+export const StashIDsField: React.FC<IStashIDsField> = ({ values }) => {
   if (!values.length) return null;
 
   return (
     <ul className="pl-0 mw-100">
       {values.map((v) => (
         <li key={v.stash_id} className="row no-gutters">
-          <StashIDPill linkType={linkType} stashID={v} />
+          <StashIDPill linkType="scenes" stashID={v} />
         </li>
       ))}
     </ul>

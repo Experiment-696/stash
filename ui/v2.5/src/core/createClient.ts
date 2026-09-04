@@ -1,17 +1,21 @@
 import {
   ApolloClient,
   InMemoryCache,
-  ApolloLink,
+  split,
+  from,
   ServerError,
   TypePolicies,
 } from "@apollo/client";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { createClient as createWSClient } from "graphql-ws";
 import { onError } from "@apollo/client/link/error";
+import { setContext } from "@apollo/client/link/context";
 import { getMainDefinition } from "@apollo/client/utilities";
 import createUploadLink from "apollo-upload-client/createUploadLink.mjs";
 import * as GQL from "src/core/generated-graphql";
 import { FieldReadFunction } from "@apollo/client/cache";
+import { csrfHeaders } from "./csrf";
+import { clearNormalizedAccountCache } from "./accountCache";
 
 // A read function that returns a cache reference with the given
 // typename if no valid reference is available.
@@ -59,6 +63,12 @@ const typePolicies: TypePolicies = {
       },
       findSavedFilter: {
         read: readReference("SavedFilter"),
+      },
+      // MyPreferences is a per-request singleton without its own cache ID.
+      // Merge partial homepage/theme selections instead of replacing the
+      // sibling field and emitting Apollo's data-loss warning.
+      myPreferences: {
+        merge: true,
       },
     },
   },
@@ -110,6 +120,11 @@ const possibleTypes = {
 export const baseURL =
   document.querySelector("base")?.getAttribute("href") ?? "/";
 
+export const migrationCSRF = () =>
+  document
+    .querySelector('meta[name="stash-migration-csrf"]')
+    ?.getAttribute("content") ?? "";
+
 export const getPlatformURL = (path?: string) => {
   let url = new URL(window.location.origin + baseURL);
 
@@ -139,6 +154,13 @@ export const createClient = () => {
   }
 
   const httpLink = createUploadLink({ uri: url.toString() });
+  const csrfLink = setContext((_, { headers }) => ({
+    headers: {
+      ...headers,
+      ...csrfHeaders(),
+      ...(migrationCSRF() ? { "X-Stash-Migration-CSRF": migrationCSRF() } : {}),
+    },
+  }));
 
   const wsClient = createWSClient({
     url: wsUrl.toString(),
@@ -150,6 +172,11 @@ export const createClient = () => {
 
   const wsLink = new GraphQLWsLink(wsClient);
 
+  const cache = new InMemoryCache({
+    typePolicies,
+    possibleTypes: possibleTypes,
+  });
+
   const errorLink = onError(({ networkError }) => {
     // handle graphql unauthorized error
     if (networkError && (networkError as ServerError).statusCode === 401) {
@@ -160,17 +187,22 @@ Authentication cannot be used with the dev server, since the session authorizati
 Please disable it on the server and refresh the page.`);
         return;
       }
+      // Authentication is an account boundary. Remove normalized objects
+      // synchronously before navigation so personalized fields can never flash
+      // from the previous principal while the redirect is in progress.
+      clearNormalizedAccountCache(cache);
       // redirect to login page
       const newURL = new URL(
         getPlatformURL("login"),
         window.location.toString()
       );
       newURL.searchParams.append("returnURL", window.location.href);
+      newURL.searchParams.append("sessionExpired", "1");
       window.location.href = newURL.toString();
     }
   });
 
-  const splitLink = ApolloLink.split(
+  const splitLink = split(
     ({ query }) => {
       const definition = getMainDefinition(query);
       return (
@@ -179,15 +211,11 @@ Please disable it on the server and refresh the page.`);
       );
     },
     wsLink,
-    httpLink
+    csrfLink.concat(httpLink)
   );
 
-  const link = ApolloLink.from([errorLink, splitLink]);
+  const link = from([errorLink, splitLink]);
 
-  const cache = new InMemoryCache({
-    typePolicies,
-    possibleTypes: possibleTypes,
-  });
   const client = new ApolloClient({
     link,
     cache,

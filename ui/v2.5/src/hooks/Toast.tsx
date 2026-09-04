@@ -37,11 +37,11 @@ export const ToastProvider: React.FC = ({ children }) => {
   const [hiding, setHiding] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  const toastItem = useMemo(() => {
-    function expand() {
-      setExpanded(true);
-    }
+  function expand() {
+    setExpanded(true);
+  }
 
+  const toastItem = useMemo(() => {
     if (!toast || expanded) return null;
 
     return (
@@ -80,7 +80,7 @@ export const ToastProvider: React.FC = ({ children }) => {
   function copyToClipboard() {
     const { content } = toast ?? {};
 
-    if (content && typeof content === "string" && navigator.clipboard) {
+    if (!!content && typeof content === "string" && navigator.clipboard) {
       navigator.clipboard.writeText(content);
     }
   }
@@ -101,11 +101,13 @@ export const ToastProvider: React.FC = ({ children }) => {
           header={<FormattedMessage id="errors.header" />}
           icon={faTriangleExclamation}
           footerButtons={
-            !!navigator.clipboard && (
-              <Button variant="secondary" onClick={() => copyToClipboard()}>
-                <FormattedMessage id="actions.copy_to_clipboard" />
-              </Button>
-            )
+            <>
+              {!!navigator.clipboard && (
+                <Button variant="secondary" onClick={() => copyToClipboard()}>
+                  <FormattedMessage id="actions.copy_to_clipboard" />
+                </Button>
+              )}
+            </>
           }
         >
           {toast?.content}

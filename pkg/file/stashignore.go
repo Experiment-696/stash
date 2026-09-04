@@ -142,8 +142,6 @@ func (f *StashIgnoreFilter) collectIgnoreEntries(dir string, libraryRoot string)
 	current := dir
 	for {
 		// Check if we're still within the library root.
-		// nolint:staticcheck // QF1006 - we could make this the for condition
-		// but I don't think it improves readability
 		if !isPathInOrEqual(libraryRoot, current) {
 			break
 		}

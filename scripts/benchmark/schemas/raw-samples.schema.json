@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/raw-samples.schema.json",
+  "title": "Stash benchmark hashing raw samples",
+  "type": "array",
+  "minItems": 10,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["algorithm", "bytes", "seconds", "digest"],
+    "properties": {
+      "algorithm": { "enum": ["md5", "sha256"] },
+      "bytes": { "type": "integer", "minimum": 1 },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 },
+      "digest": { "type": "string", "pattern": "^[0-9a-f]+$" }
+    }
+  }
+}

@@ -47,6 +47,10 @@ type Scene {
   date: String
   # rating expressed as 1-100
   rating100: Int
+  "Average of all users' ratings; individual ratings remain private"
+  rating100_average: Float!
+  "Number of user ratings included in rating100_average"
+  rating100_count: Int!
   organized: Boolean!
   o_counter: Int
   interactive: Boolean!

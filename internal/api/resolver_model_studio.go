@@ -138,40 +138,27 @@ func (r *studioResolver) GroupCount(ctx context.Context, obj *models.Studio, dep
 	return ret, nil
 }
 
-func (r *studioResolver) SceneMarkerCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
-	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		ret, err = scene.MarkerCountByStudioID(ctx, r.repository.SceneMarker, obj.ID, depth)
-		return err
-	}); err != nil {
-		return 0, err
-	}
-
-	return ret, nil
-}
-
 // deprecated
 func (r *studioResolver) MovieCount(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
 	return r.GroupCount(ctx, obj, depth)
 }
 
-func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio, depth *int) (ret int, err error) {
+func (r *studioResolver) OCounter(ctx context.Context, obj *models.Studio) (ret *int, err error) {
 	var res_scene int
 	var res_image int
-	depthVal := 0
-	if depth != nil {
-		depthVal = *depth
-	}
+	var res int
 	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
-		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID, depthVal)
+		res_scene, err = r.repository.Scene.OCountByStudioID(ctx, obj.ID)
 		if err != nil {
 			return err
 		}
-		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID, depthVal)
+		res_image, err = r.repository.Image.OCountByStudioID(ctx, obj.ID)
 		return err
 	}); err != nil {
-		return 0, err
+		return nil, err
 	}
-	return res_scene + res_image, nil
+	res = res_scene + res_image
+	return &res, nil
 }
 
 func (r *studioResolver) ParentStudio(ctx context.Context, obj *models.Studio) (ret *models.Studio, err error) {

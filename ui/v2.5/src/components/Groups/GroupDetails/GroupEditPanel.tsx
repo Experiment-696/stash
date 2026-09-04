@@ -32,13 +32,13 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 
 interface IGroupEditPanel {
   group: Partial<GQL.GroupDataFragment>;
   onSubmit: (group: GQL.GroupCreateInput, andNew?: boolean) => Promise<void>;
   onCancel: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   setFrontImage: (image?: string | null) => void;
   setBackImage: (image?: string | null) => void;
   setEncodingImage: (loading: boolean) => void;
@@ -196,7 +196,7 @@ export const GroupEditPanel: React.FC<IGroupEditPanel> = ({
       formik.setFieldValue("date", state.date);
     }
 
-    if (state.studio?.stored_id) {
+    if (state.studio && state.studio.stored_id) {
       onSetStudio({
         id: state.studio.stored_id,
         name: state.studio.name ?? "",
@@ -250,7 +250,7 @@ export const GroupEditPanel: React.FC<IGroupEditPanel> = ({
 
     try {
       const result = await queryScrapeGroupURL(url);
-      if (!result.data?.scrapeGroupURL) {
+      if (!result.data || !result.data.scrapeGroupURL) {
         return;
       }
 

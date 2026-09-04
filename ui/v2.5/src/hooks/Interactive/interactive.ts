@@ -80,7 +80,7 @@ async function uploadCsv(
   filename?: string
 ): Promise<CsvUploadResponse> {
   const url = "https://www.handyfeeling.com/api/sync/upload?local=true";
-  if (!filename) filename = "script_" + Date.now() + ".csv";
+  if (!filename) filename = "script_" + new Date().valueOf() + ".csv";
   const formData = new FormData();
   formData.append("syncFile", csv, filename);
   const response = await fetch(url, {
@@ -154,12 +154,12 @@ export class Interactive {
       return;
     }
 
-    let funscriptUrl = "";
+    var funscriptUrl;
 
     if (this._useStashHostedFunscript) {
       funscriptUrl = funscriptPath.replace("/funscript", "/interactive_csv");
       if (typeof apiKey !== "undefined" && apiKey !== "") {
-        const url = new URL(funscriptUrl);
+        var url = new URL(funscriptUrl);
         url.searchParams.append("apikey", apiKey);
         funscriptUrl = url.toString();
       }

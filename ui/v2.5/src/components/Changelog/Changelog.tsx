@@ -48,12 +48,12 @@ const Changelog: React.FC = () => {
   const stashVersion = import.meta.env.VITE_APP_STASH_VERSION;
   const buildTime = import.meta.env.VITE_APP_DATE;
 
-  let buildDate: string | undefined;
+  let buildDate;
   if (buildTime) {
     buildDate = buildTime.substring(0, buildTime.indexOf(" "));
   }
 
-  if (loading) return null;
+  if (loading) return <></>;
 
   const openState = data?.versions ?? {};
 

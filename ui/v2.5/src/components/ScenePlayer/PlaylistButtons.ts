@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import videojs, { VideoJsPlayer } from "video.js";
 
 interface ControlOptions extends videojs.ComponentOptions {
@@ -100,7 +101,7 @@ declare module "video.js" {
     skipButtons: () => SkipButtonPlugin;
   }
   interface VideoJsPlayerPluginOptions {
-    skipButtons?: object;
+    skipButtons?: {};
   }
 }
 

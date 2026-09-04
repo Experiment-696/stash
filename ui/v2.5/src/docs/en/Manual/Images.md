@@ -1,4 +1,4 @@
-# Images and galleries
+# Images and Galleries
 
 Images are the parts which make up galleries, but you can also have them be scanned independently. To declare an image part of a gallery, there are four ways:
 
@@ -12,8 +12,6 @@ You can add images to every gallery manually in the gallery detail page. Deletin
 For best results, images in zip file should be stored without compression (copy, store or no compression options depending on the software you use. Eg on linux: `zip -0 -r gallery.zip foldertozip/`). This impacts **heavily** on the zip read performance.
 
 > **⚠️ Note:** AVIF files in ZIP archives are currently unsupported.
-
-> **ℹ️ Note:** JPEG XL (`.jxl`) is supported, including inside ZIP archives, and requires an FFmpeg built with `libjxl` (or [libvips](https://www.libvips.org/)). Perceptual hashes are not generated for JXL inside ZIP archives.
 
 If a filename of an image in the gallery zip file ends with `cover.jpg`, it will be treated like a cover and presented first in the gallery view page and as a gallery cover in the gallery list view. If more than one images match the name the first one found in natural sort order is selected.
 
@@ -30,3 +28,4 @@ A clip/gif will be a stillframe in the wall and grid view by default. To view th
 
 If you want the loop to be used as a preview on the wall and grid view, you will have to generate them. 
 You can do this as you scan for the new clip file by activating **Generate previews for image clips** on the scan settings, or do it after by going to the **Generated Content** section in the task section of your settings, activating **Image clip previews** and clicking generate. This takes a while, as the files are transcoded.
+

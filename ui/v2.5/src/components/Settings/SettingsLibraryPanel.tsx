@@ -8,6 +8,9 @@ import { useSettings } from "./context";
 import { useIntl } from "react-intl";
 import { faQuestionCircle } from "@fortawesome/free-solid-svg-icons";
 import { ExternalLink } from "../Shared/ExternalLink";
+import { SettingsCamClassificationPanel } from "./SettingsCamClassificationPanel";
+import { SettingsCompletedRecordingImportPanel } from "./SettingsCompletedRecordingImportPanelContainer";
+import "./settingsCompletedRecordingImport.scss";
 
 export const SettingsLibraryPanel: React.FC = () => {
   const intl = useIntl();
@@ -139,6 +142,14 @@ export const SettingsLibraryPanel: React.FC = () => {
           onChange={(v) => saveGeneral({ galleryCoverRegex: v })}
         />
       </SettingSection>
+
+      <div className="setting-section" id="cam-show-classification">
+        <SettingsCamClassificationPanel />
+      </div>
+
+      <div className="setting-section" id="completed-recording-import">
+        <SettingsCompletedRecordingImportPanel />
+      </div>
 
       <SettingSection headingID="config.ui.delete_options.heading">
         <BooleanSetting

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/browser-samples.schema.json",
+  "title": "Stash browser benchmark raw samples",
+  "type": "array",
+  "minItems": 5,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["url", "seconds", "dom_nodes", "resource_requests", "js_heap_used_bytes"],
+    "properties": {
+      "url": { "type": "string", "pattern": "^https?://(localhost|127\\.0\\.0\\.1|\\[::1\\])(:[0-9]+)?(/.*)?$" },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 },
+      "dom_nodes": { "type": "integer", "minimum": 1 },
+      "resource_requests": { "type": "integer", "minimum": 1 },
+      "js_heap_used_bytes": { "type": "integer", "minimum": 0 }
+    }
+  }
+}

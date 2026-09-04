@@ -6,9 +6,9 @@ import { Icon } from "src/components/Shared/Icon";
 import { useTroubleshootingMode } from "./useTroubleshootingMode";
 
 export const TroubleshootingModeOverlay: React.FC = () => {
-  const { isActive, isLoading, disable } = useTroubleshootingMode();
+  const { isActive, isAdmin, isLoading, disable } = useTroubleshootingMode();
 
-  if (!isActive) {
+  if (!isAdmin || !isActive) {
     return null;
   }
 

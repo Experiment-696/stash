@@ -31,8 +31,8 @@ interface IGroupScrapeDialogProps {
 
 export const GroupScrapeDialog: React.FC<IGroupScrapeDialogProps> = ({
   group,
-  groupStudio,
-  groupTags,
+  groupStudio: groupStudio,
+  groupTags: groupTags,
   scraped,
   onClose,
 }) => {
@@ -48,7 +48,7 @@ export const GroupScrapeDialog: React.FC<IGroupScrapeDialogProps> = ({
     new ScrapeResult<string>(
       TextUtils.secondsToTimestamp(group.duration || 0),
       // convert seconds to string if it's a number
-      scraped.duration && !Number.isNaN(Number(scraped.duration))
+      scraped.duration && !isNaN(+scraped.duration)
         ? TextUtils.secondsToTimestamp(parseInt(scraped.duration, 10))
         : scraped.duration
     )
@@ -123,7 +123,7 @@ export const GroupScrapeDialog: React.FC<IGroupScrapeDialogProps> = ({
     newTags.length === 0
   ) {
     onClose();
-    return null;
+    return <></>;
   }
 
   function makeNewScrapedItem(): GQL.ScrapedGroup {

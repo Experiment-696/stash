@@ -76,10 +76,9 @@ func performImport(ctx context.Context, i importer, duplicateBehaviour ImportDup
 	var id int
 
 	if existing != nil {
-		switch duplicateBehaviour {
-		case ImportDuplicateEnumFail:
+		if duplicateBehaviour == ImportDuplicateEnumFail {
 			return fmt.Errorf("existing object with name '%s'", name)
-		case ImportDuplicateEnumIgnore:
+		} else if duplicateBehaviour == ImportDuplicateEnumIgnore {
 			logger.Infof("Skipping existing object %q", name)
 			return nil
 		}

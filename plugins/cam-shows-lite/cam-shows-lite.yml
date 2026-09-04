@@ -1,0 +1,9 @@
+name: Cam Shows Lite
+description: Development UI shell for the bundled Cam Shows trusted extension.
+version: 0.0.1-dev
+url: https://github.com/stashapp/stash
+ui:
+  javascript:
+    - cam-shows-lite.js
+  css:
+    - cam-shows-lite.css

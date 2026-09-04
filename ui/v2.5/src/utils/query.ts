@@ -99,7 +99,7 @@ export function sortByRelevance<T extends ISortable>(
 
   function getAliasWords(o: T) {
     const aliases = getObjectAliases(o);
-    return aliases.flatMap((a) => getWords(a));
+    return aliases.map((a) => getWords(a)).flat();
   }
 
   function getWordIndex(o: T) {
@@ -110,7 +110,7 @@ export function sortByRelevance<T extends ISortable>(
     }
 
     const words = getNameWords(o);
-    const wordIndex = words.indexOf(query);
+    const wordIndex = words.findIndex((w) => w === query);
     setCache(o, { wordIndex });
 
     return wordIndex;
@@ -124,7 +124,7 @@ export function sortByRelevance<T extends ISortable>(
     }
 
     const aliasWords = getAliasWords(o);
-    const aliasWordIndex = aliasWords.indexOf(query);
+    const aliasWordIndex = aliasWords.findIndex((w) => w === query);
     setCache(o, { aliasWordIndex });
 
     return aliasWordIndex;

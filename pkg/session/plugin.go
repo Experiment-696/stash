@@ -16,6 +16,8 @@ type VisitedPluginHook struct {
 	HookType hook.TriggerEnum
 }
 
+const pluginRequestKey = "plugin_request"
+
 func init() {
 	gob.Register([]VisitedPluginHook{})
 }
@@ -70,6 +72,7 @@ func (s *Store) MakePluginCookie(ctx context.Context) *http.Cookie {
 	}
 
 	session.Values[visitedPluginHooksKey] = visitedPlugins
+	session.Values[pluginRequestKey] = true
 
 	encoded, err := securecookie.EncodeMulti(session.Name(), session.Values,
 		s.sessionStore.Codecs...)
@@ -79,4 +82,14 @@ func (s *Store) MakePluginCookie(ctx context.Context) *http.Cookie {
 	}
 
 	return sessions.NewCookie(session.Name(), encoded, session.Options)
+}
+
+func (s *Store) IsPluginRequest(r *http.Request) bool {
+	pluginSession, err := s.sessionStore.Get(r, cookieName)
+	if err != nil {
+		return false
+	}
+	marked, _ := pluginSession.Values[pluginRequestKey].(bool)
+	userID, _ := pluginSession.Values[userIDKey].(string)
+	return marked && userID != ""
 }

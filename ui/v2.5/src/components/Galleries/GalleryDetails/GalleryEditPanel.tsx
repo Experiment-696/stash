@@ -35,13 +35,13 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 
 interface IProps {
   gallery: Partial<GQL.GalleryDataFragment>;
   isVisible: boolean;
   onSubmit: (input: GQL.GalleryCreateInput, andNew?: boolean) => Promise<void>;
-  onDelete: () => void;
+  onDelete?: () => void;
 }
 
 export const GalleryEditPanel: React.FC<IProps> = ({
@@ -163,7 +163,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
         }
       });
       Mousetrap.bind("d d", () => {
-        onDelete();
+        onDelete?.();
       });
 
       return () => {
@@ -214,12 +214,12 @@ export const GalleryEditPanel: React.FC<IProps> = ({
   }
 
   async function onScrapeClicked(s: GQL.ScraperSourceInput) {
-    if (!gallery?.id) return;
+    if (!gallery || !gallery.id) return;
 
     setIsLoading(true);
     try {
       const result = await queryScrapeGallery(s.scraper_id!, gallery.id);
-      if (!result.data?.scrapeSingleGallery?.length) {
+      if (!result.data || !result.data.scrapeSingleGallery?.length) {
         Toast.success("No galleries found");
         return;
       }
@@ -342,7 +342,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
     setIsLoading(true);
     try {
       const result = await queryScrapeGalleryURL(url);
-      if (!result.data?.scrapeGalleryURL) {
+      if (!result || !result.data || !result.data.scrapeGalleryURL) {
         return;
       }
       setScrapedGallery(result.data.scrapeGalleryURL);
@@ -420,7 +420,7 @@ export const GalleryEditPanel: React.FC<IProps> = ({
     const date = (() => {
       try {
         return schema.validateSyncAt("date", formik.values);
-      } catch (_e) {
+      } catch (e) {
         return undefined;
       }
     })();
@@ -499,13 +499,15 @@ export const GalleryEditPanel: React.FC<IProps> = ({
                 <FormattedMessage id="actions.save" />
               </Button>
             )}
-            <Button
-              className="edit-button"
-              variant="danger"
-              onClick={() => onDelete()}
-            >
-              <FormattedMessage id="actions.delete" />
-            </Button>
+            {onDelete && (
+              <Button
+                className="edit-button"
+                variant="danger"
+                onClick={() => onDelete()}
+              >
+                <FormattedMessage id="actions.delete" />
+              </Button>
+            )}
           </div>
           <div className="ml-auto text-right d-flex">
             {!isNew && (

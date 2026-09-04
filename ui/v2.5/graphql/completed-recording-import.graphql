@@ -1,0 +1,48 @@
+query CompletedRecordingImportConfig {
+  completedRecordingImportConfig {
+    enabled
+    root
+  }
+}
+mutation CompletedRecordingImportConfigure(
+  $input: CompletedRecordingImportConfigInput!
+) {
+  completedRecordingImportConfigure(input: $input) {
+    enabled
+    root
+  }
+}
+mutation CompletedRecordingPreview($input: CompletedRecordingPreviewInput!) {
+  completedRecordingPreview(input: $input) {
+    previewID
+    createdAt
+    expiresAt
+    scannedCount
+    truncated
+    boundReason
+    items {
+      candidateID
+      relativePath
+      platform
+      username
+      completedAt
+      timezone
+      precision
+      sceneID
+      siteID
+      modelID
+      matchState
+      outcome
+      reviewReason
+      reviewCode
+    }
+  }
+}
+
+mutation CompletedRecordingApply($input: CompletedRecordingApplyInput!) {
+  completedRecordingApply(input: $input) {
+    candidateID
+    outcome
+    reason
+  }
+}

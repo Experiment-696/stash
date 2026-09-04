@@ -12,7 +12,6 @@ type ImageGetter interface {
 // ImageFinder provides methods to find images.
 type ImageFinder interface {
 	ImageGetter
-	IDsFromFileIDsLoader
 	FindByFingerprints(ctx context.Context, fp []Fingerprint) ([]*Image, error)
 	FindByChecksum(ctx context.Context, checksum string) ([]*Image, error)
 	FindByFileID(ctx context.Context, fileID FileID) ([]*Image, error)
@@ -39,7 +38,7 @@ type ImageCounter interface {
 	CountByGalleryID(ctx context.Context, galleryID int) (int, error)
 	OCount(ctx context.Context) (int, error)
 	OCountByPerformerID(ctx context.Context, performerID int) (int, error)
-	OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error)
+	OCountByStudioID(ctx context.Context, studioID int) (int, error)
 }
 
 // ImageCreator provides methods to create images.

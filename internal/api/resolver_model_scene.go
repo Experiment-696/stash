@@ -7,11 +7,45 @@ import (
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
-	"github.com/stashapp/stash/pkg/session"
-	"github.com/stashapp/stash/pkg/signedurl"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
+
+func (r *sceneResolver) Rating100(ctx context.Context, obj *models.Scene) (*int, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.Rating, err
+}
+
+func (r *sceneResolver) Rating100Average(ctx context.Context, obj *models.Scene) (float64, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingAverage, err
+}
+
+func (r *sceneResolver) Rating100Count(ctx context.Context, obj *models.Scene) (int, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingCount, err
+}
+
+func (r *sceneResolver) personalState(ctx context.Context, sceneID int) (ret sqlite.ScenePersonalState, err error) {
+	principal, err := authz.RequireContext(ctx, authz.AccountSelfRead)
+	if err != nil {
+		return ret, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return ret, err
+	}
+	err = r.withReadTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().PersonalState.Scene(txCtx, userID, int64(sceneID))
+		return err
+	})
+	if err != nil {
+		return ret, personalDataError("load scene state", err)
+	}
+	return ret, nil
+}
 
 func convertVideoFile(f models.File) (*models.VideoFile, error) {
 	vf, ok := f.(*models.VideoFile)
@@ -101,46 +135,19 @@ func (r *sceneResolver) Rating(ctx context.Context, obj *models.Scene) (*int, er
 	return nil, nil
 }
 
-func (r *sceneResolver) Rating100(ctx context.Context, obj *models.Scene) (*int, error) {
-	return obj.Rating, nil
-}
-
 func (r *sceneResolver) Paths(ctx context.Context, obj *models.Scene) (*ScenePathsType, error) {
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	config := manager.GetInstance().Config
 	builder := urlbuilders.NewSceneURLBuilder(baseURL, obj)
-
-	var streamPath string
-	var captionBasePath string
-	if config.HasCredentials() {
-		userID := session.GetCurrentUserID(ctx)
-		if userID == nil {
-			return nil, fmt.Errorf("user ID not found")
-		}
-
-		// Sign the stream prefix
-		streamURL := builder.GetStreamURL("")
-		streamURL.RawQuery = signedParams(config, *userID, signedurl.DerivePrefix(streamURL.Path)).Encode()
-		streamPath = streamURL.String()
-
-		// Sign the caption prefix
-		captionBase := builder.GetCaptionURL()
-		captionBasePath = captionBase + "?" + signedParams(config, *userID, builder.GetCaptionPath()).Encode()
-	} else {
-		apiKey := config.GetAPIKey()
-		streamURL := builder.GetStreamURL(apiKey)
-		streamPath = streamURL.String()
-		captionBasePath = builder.GetCaptionURL()
-	}
-
-	// Web-only formats: use unsigned URLs (rely on cookie authentication)
 	screenshotPath := builder.GetScreenshotURL()
 	previewPath := builder.GetStreamPreviewURL()
+	streamPath := builder.GetStreamURL(config.GetAPIKey()).String()
 	webpPath := builder.GetStreamPreviewImageURL()
 	objHash := obj.GetHash(config.GetVideoFileNamingAlgorithm())
 	vttPath := builder.GetSpriteVTTURL(objHash)
 	spritePath := builder.GetSpriteURL(objHash)
-	funscriptPath := builder.GetFunscriptURL(config.GetAPIKey()).String()
+	funscriptPath := builder.GetFunscriptURL()
+	captionBasePath := builder.GetCaptionURL()
 	interactiveHeatmap := builder.GetInteractiveHeatmapURL()
 
 	return &ScenePathsType{
@@ -319,25 +326,9 @@ func (r *sceneResolver) SceneStreams(ctx context.Context, obj *models.Scene) ([]
 
 	baseURL, _ := ctx.Value(BaseURLCtxKey).(string)
 	builder := urlbuilders.NewSceneURLBuilder(baseURL, obj)
+	apiKey := config.GetAPIKey()
 
-	// Build the base stream URL with signing params or apikey
-	streamURL := builder.GetStreamURL("")
-	if config.HasCredentials() {
-		userID := session.GetCurrentUserID(ctx)
-		if userID == nil {
-			return nil, fmt.Errorf("user ID not found")
-		}
-		streamURL.RawQuery = signedParams(config, *userID, signedurl.DerivePrefix(streamURL.Path)).Encode()
-	} else {
-		apiKey := config.GetAPIKey()
-		if apiKey != "" {
-			v := streamURL.Query()
-			v.Set("apikey", apiKey)
-			streamURL.RawQuery = v.Encode()
-		}
-	}
-
-	return manager.GetSceneStreamPaths(obj, streamURL, config.GetMaxStreamingTranscodeSize())
+	return manager.GetSceneStreamPaths(obj, builder.GetStreamURL(apiKey), config.GetMaxStreamingTranscodeSize())
 }
 
 func (r *sceneResolver) Interactive(ctx context.Context, obj *models.Scene) (bool, error) {

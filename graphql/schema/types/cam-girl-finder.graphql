@@ -1,0 +1,40 @@
+type CamGirlFinderConfig {
+  enabled: Boolean!
+  requestIntervalMS: Int!
+  timeoutSeconds: Int!
+  resultLimit: Int!
+}
+input CamGirlFinderConfigInput {
+  enabled: Boolean!
+  requestIntervalMS: Int!
+  timeoutSeconds: Int!
+  resultLimit: Int!
+}
+type CamGirlFinderCandidate {
+  evidenceKey: String!
+  platform: String!
+  username: String!
+  sourceURL: String!
+  observedAt: Timestamp!
+  payloadJSON: String!
+}
+type CamGirlFinderIngestResult {
+  evidenceKey: String!
+  evidenceID: ID
+  changeID: ID
+  status: String!
+  disposition: String
+  reason: String
+}
+extend type Query {
+  camGirlFinderConfig: CamGirlFinderConfig!
+}
+extend type Mutation {
+  camGirlFinderConfigure(input: CamGirlFinderConfigInput!): CamGirlFinderConfig!
+  camGirlFinderSearch(query: String!): [CamGirlFinderCandidate!]!
+  camGirlFinderIngestPending(
+    modelID: ID!
+    query: String!
+    evidenceKeys: [String!]!
+  ): [CamGirlFinderIngestResult!]!
+}

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+
 declare module "videojs-vtt.js" {
   /**
    * A custom JS error object that is reported through the parser's `onparsingerror` callback.

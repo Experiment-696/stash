@@ -1,8 +1,8 @@
-# Metadata scraping
+# Metadata Scraping
 
 Stash supports scraping of metadata from various external sources.
 
-## Scraper types
+## Scraper Types
 
 | Type | Description |
 |---|:---|
@@ -10,7 +10,7 @@ Stash supports scraping of metadata from various external sources.
 | Search/By Name | Uses a provided query string to search a metadata source for a list of matches for the user to pick from. |
 | URL | Extracts metadata from a given URL. |
 
-## Supported scrapers
+## Supported Scrapers
 
 |   | Fragment | Search | URL |
 |---|:---:|:---:|:---:|
@@ -20,16 +20,16 @@ Stash supports scraping of metadata from various external sources.
 | performer | | ✔️ | ✔️ |
 | scene | ✔️  | ✔️ | ✔️ |
 
-## Included scrapers
+## Included Scrapers
 
 Stash provides the following built-in scrapers:
 
 | Scraper | Description |
 |---|--|
 | Freeones | `search` Performer scraper for freeones.xxx. |
-| Auto Tag | Scene, gallery and image `fragment` scrapers that matches existing performers, studio and tags using the filename. |
+| Auto Tag | Scene `fragment` scraper that matches existing performers, studio and tags using the filename. |
 
-## Managing scrapers
+## Managing Scrapers
 
 Scrapers can be installed and managed from the `Settings > Metadata Providers` page. 
 
@@ -65,7 +65,7 @@ The source URL must return a yaml file containing all the available packages for
 
 Path can be a relative path to the zip file or an external URL.
 
-## Adding scrapers manually
+## Adding Scrapers manually
 
 By default, Stash looks for scraper configurations in the `scrapers` sub-directory of the directory where the stash `config.yml` is read. This will either be the `$HOME/.stash` directory or the current working directory.
 
@@ -75,25 +75,20 @@ Scrapers are added manually by placing yaml configuration files (format: `scrape
 
 After the yaml files are added, removed or edited while stash is running, they can be reloaded going to `Settings > Metadata Providers > Scrapers` and clicking `Reload Scrapers`.
   
-## Using scrapers
+## Using Scrapers
 
-#### Fragment scraper
-
+#### Fragment Scraper
 Click on the `Scrape With...` button in the `edit` tab of an item, then select the scraper you wish to use.
 
-#### Search scraper
-
+#### Search Scraper
 Click on the 🔍 button in the `edit` tab of an item. You will be presented with a search dialog with a pre-populated query to search for, after searching you will be presented with a list of results to pick from
 
-#### URL scraper
-
+#### URL Scraper
 Enter the URL in the `edit` tab of an Item. If a scraper is installed that supports that url, then a button will appear to scrape the metadata.
 
-## Tagger view
+## Tagger View
 
-The Tagger view is available from supported list pages. Scenes can use stash-boxes and compatible metadata scrapers. Performers, studios, and tags use a configured stash-box instance.
-
-The Tagger presents the user with potential matches for an item from a selected stash-box instance or metadata source if supported. The user needs to select the correct metadata information to save.
+The Tagger view is accessed from the scenes page. It allows the user to run scrapers on all items on the current page. The Tagger presents the user with potential matches for an item from a selected stash-box instance or metadata source if supported. The user needs to select the correct metadata information to save. 
 
 When used in combination with stash-box, the user can optionally submit scene fingerprints to contribute to a stash-box instance. A scene fingerprint consists of any generated hashes (`phash`, `oshash`, `md5`) and the scene duration. Fingerprint submissions are associated with your stash-box account. Submitting fingerprints assists others in matching their files, because stash-box returns a count of matching user submitted fingerprints with every potential match.
 
@@ -101,12 +96,10 @@ When used in combination with stash-box, the user can optionally submit scene fi
 |---|:---:|:---:|
 | gallery | | |
 | group | | |
-| image | | |
 | performer | ✔️ | |
 | scene | ✔️ | ✔️ |
-| studio | ✔️ | |
-| tag | ✔️ | |
 
-## Identify task
+
+## Identify Task
 
 This task iterates through your Scenes and attempts to identify the scene using a selection of scraping sources. This task can be found under `Settings -> Tasks -> "Identify..." (Button)`. For more information see the [Tasks > Identify](/help/Identify.md) page.

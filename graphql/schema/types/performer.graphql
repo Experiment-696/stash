@@ -37,6 +37,12 @@ type Performer {
   piercings: String
   alias_list: [String!]!
   favorite: Boolean!
+  "Sum of all users' ratings; individual ratings remain private"
+  rating100_sum: Int!
+  "Number of user ratings included in rating100_sum"
+  rating100_count: Int!
+  "Average of all users' ratings; individual ratings remain private"
+  rating100_average: Float!
   tags: [Tag!]!
   ignore_auto_tag: Boolean!
 

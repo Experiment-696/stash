@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/manifest.schema.json",
+  "title": "Stash benchmark run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "created_utc", "suite", "fixture", "seed", "fixture_digest", "environment", "limits"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "created_utc": { "type": "string", "format": "date-time" },
+    "suite": { "type": "string", "minLength": 1 },
+    "fixture": { "enum": ["S", "M", "L"] },
+    "seed": { "type": "integer" },
+    "fixture_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "environment": {
+      "type": "object",
+      "required": ["os", "architecture", "logical_cpus", "go_version", "storage_profile"],
+      "properties": {
+        "os": { "type": "string" }, "architecture": { "type": "string" }, "logical_cpus": { "type": "integer", "minimum": 1 },
+        "go_version": { "type": "string" }, "storage_profile": { "type": "string" }, "filesystem": { "type": "string" },
+        "share_protocol": { "type": "string" }, "share_mount_options": { "type": "string" }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "required": ["max_physical_bytes", "max_wall_time"],
+      "properties": { "max_physical_bytes": { "type": "integer", "minimum": 1, "maximum": 26843545600 }, "max_wall_time": { "type": "string" } }
+    },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+  }
+}

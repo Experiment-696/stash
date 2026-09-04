@@ -10,6 +10,18 @@ mutation PerformerUpdate($input: PerformerUpdateInput!) {
   }
 }
 
+mutation PerformerSetFavorite($id: ID!, $favorite: Boolean!) {
+  performerSetFavorite(id: $id, favorite: $favorite) {
+    ...PerformerData
+  }
+}
+
+mutation PerformerSetRating($id: ID!, $rating100: Int) {
+  performerSetRating(id: $id, rating100: $rating100) {
+    ...PerformerData
+  }
+}
+
 mutation BulkPerformerUpdate($input: BulkPerformerUpdateInput!) {
   bulkPerformerUpdate(input: $input) {
     ...PerformerData

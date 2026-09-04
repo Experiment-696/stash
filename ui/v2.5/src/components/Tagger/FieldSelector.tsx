@@ -5,7 +5,6 @@ import { useIntl } from "react-intl";
 
 import { ModalComponent } from "../Shared/Modal";
 import { Icon } from "../Shared/Icon";
-import { listToMap } from "src/utils/data";
 
 interface IProps {
   show: boolean;
@@ -22,7 +21,9 @@ const FieldSelector: React.FC<IProps> = ({
 }) => {
   const intl = useIntl();
   const [excluded, setExcluded] = useState<Record<string, boolean>>(
-    listToMap(excludedFields.filter((field) => fields.includes(field)))
+    excludedFields
+      .filter((field) => fields.includes(field))
+      .reduce((dict, field) => ({ ...dict, [field]: true }), {})
   );
 
   const toggleField = (field: string) =>

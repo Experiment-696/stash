@@ -1,11 +1,9 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import videojs, { VideoJsPlayer } from "video.js";
-import "@blaineam/videojs-vr";
+import "videojs-vr";
 // separate type import, otherwise typescript elides the above import
 // and the plugin does not get initialized
-import type {
-  ProjectionType,
-  Plugin as VideoJsVRPlugin,
-} from "@blaineam/videojs-vr";
+import type { ProjectionType, Plugin as VideoJsVRPlugin } from "videojs-vr";
 
 export interface VRMenuOptions {
   /**
@@ -175,6 +173,7 @@ class VRMenuPlugin extends videojs.getPlugin("plugin") {
 videojs.registerComponent("VRMenuButton", VRMenuButton);
 videojs.registerPlugin("vrMenu", VRMenuPlugin);
 
+/* eslint-disable @typescript-eslint/naming-convention */
 declare module "video.js" {
   interface VideoJsPlayer {
     vrMenu: () => VRMenuPlugin;

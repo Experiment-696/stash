@@ -10,12 +10,10 @@ ifdef IS_WIN_SHELL
   RM := del /s /q
   RMDIR := rmdir /s /q
   NOOP := @@
-  PREFIX := $(USERPROFILE)\\bin
 else
   RM := rm -f
   RMDIR := rm -rf
   NOOP := @:
-  PREFIX := $(HOME)/.local
 endif
 
 # set LDFLAGS environment variable to any extra ldflags required
@@ -29,10 +27,7 @@ ifdef OUTPUT
   PHASHER_OUTPUT := $(OUTPUT)
 endif
 ifdef STASH_OUTPUT
-  STASH_BINARY := $(STASH_OUTPUT)
   STASH_OUTPUT := -o $(STASH_OUTPUT)
-else
-  STASH_BINARY := stash
 endif
 ifdef PHASHER_OUTPUT
   PHASHER_OUTPUT := -o $(PHASHER_OUTPUT)
@@ -45,6 +40,9 @@ GO_BUILD_FLAGS := $(GO_BUILD_FLAGS)
 GO_BUILD_TAGS := $(GO_BUILD_TAGS)
 GO_BUILD_TAGS += sqlite_stat4 sqlite_math_functions
 
+# set STASH_NOLEGACY environment variable or uncomment to disable legacy browser support
+# STASH_NOLEGACY := true
+
 # set STASH_SOURCEMAPS environment variable or uncomment to enable UI sourcemaps
 # STASH_SOURCEMAPS := true
 
@@ -55,14 +53,8 @@ ifndef COMPILER_IMAGE
   COMPILER_IMAGE := ghcr.io/stashapp/compiler:latest
 endif
 
-# cannot really parallelise the release target
-# generate requires pre-ui, ui requires generate and build-release requires ui, so they must be run sequentially
 .PHONY: release
-release: 
-	$(MAKE) pre-ui
-	$(MAKE) generate
-	$(MAKE) ui
-	$(MAKE) build-release
+release: pre-ui generate ui build-release
 
 # targets to set various build flags
 # use combinations on the make command-line to configure a build, e.g.:
@@ -106,7 +98,7 @@ flags-static-windows:
 .PHONY: build-info
 build-info:
 ifndef BUILD_DATE
-	$(eval BUILD_DATE := $(shell GOOS=$$(go env GOHOSTOS) GOARCH=$$(go env GOHOSTARCH) go run scripts/getDate.go))
+	$(eval BUILD_DATE := $(shell go run scripts/getDate.go))
 endif
 ifndef GITHASH
 	$(eval GITHASH := $(shell git rev-parse --short HEAD))
@@ -125,9 +117,6 @@ build-flags: build-info
 	$(eval BUILD_LDFLAGS += -X 'github.com/stashapp/stash/internal/build.githash=$(GITHASH)')
 	$(eval BUILD_LDFLAGS += -X 'github.com/stashapp/stash/internal/build.version=$(STASH_VERSION)')
 	$(eval BUILD_LDFLAGS += -X 'github.com/stashapp/stash/internal/build.officialBuild=$(OFFICIAL_BUILD)')
-ifdef UPDATE_REPO
-	$(eval BUILD_LDFLAGS += -X 'github.com/stashapp/stash/internal/build.updateRepo=$(UPDATE_REPO)')
-endif
 	$(eval BUILD_FLAGS := -v -tags "$(GO_BUILD_TAGS)" $(GO_BUILD_FLAGS) -ldflags "$(BUILD_LDFLAGS)")
 
 .PHONY: stash
@@ -294,7 +283,7 @@ generate: generate-backend generate-ui
 
 .PHONY: generate-ui
 generate-ui:
-	cd ui/v2.5 && pnpm run gqlgen
+	cd ui/v2.5 && npm run gqlgen
 
 .PHONY: generate-backend
 generate-backend: touch-ui
@@ -376,6 +365,9 @@ ui-env: build-info
 	$(eval export VITE_APP_DATE := $(BUILD_DATE))
 	$(eval export VITE_APP_GITHASH := $(GITHASH))
 	$(eval export VITE_APP_STASH_VERSION := $(STASH_VERSION))
+ifdef STASH_NOLEGACY
+	$(eval export VITE_APP_NOLEGACY := true)
+endif
 ifdef STASH_SOURCEMAPS
 	$(eval export VITE_APP_SOURCEMAPS := true)
 endif
@@ -385,7 +377,7 @@ ui: ui-only generate-login-locale
 
 .PHONY: ui-only
 ui-only: ui-env
-	cd ui/v2.5 && pnpm run build
+	cd ui/v2.5 && npm run build
 
 .PHONY: zip-ui
 zip-ui:
@@ -394,23 +386,23 @@ zip-ui:
 
 .PHONY: ui-start
 ui-start: ui-env
-	cd ui/v2.5 && pnpm run start --host
+	cd ui/v2.5 && npm run start -- --host
 
 .PHONY: fmt-ui
 fmt-ui:
-	cd ui/v2.5 && pnpm run format
+	cd ui/v2.5 && npm run format
 
 # runs all of the frontend PR-acceptance steps
 .PHONY: validate-ui
 validate-ui:
-	cd ui/v2.5 && pnpm run validate
+	cd ui/v2.5 && npm run validate
 
 # these targets run the same steps as fmt-ui and validate-ui, but only on files that have changed
 fmt-ui-quick:
 	cd ui/v2.5 && \
 	files=$$(git diff --name-only --relative --diff-filter d . ../../graphql); \
 	if [ -n "$$files" ]; then \
-	  pnpm exec biome format --write $$files; \
+	  npm run prettier -- --write $$files; \
 	fi
 
 # does not run tsc checks, as they are slow
@@ -419,9 +411,9 @@ validate-ui-quick:
 	tsfiles=$$(git diff --name-only --relative --diff-filter d src | grep -e "\.tsx\?\$$"); \
 	scssfiles=$$(git diff --name-only --relative --diff-filter d src | grep "\.scss"); \
 	prettyfiles=$$(git diff --name-only --relative --diff-filter d . ../../graphql); \
-	if [ -n "$$tsfiles" ]; then pnpm exec biome check $$tsfiles; fi && \
-	if [ -n "$$scssfiles" ]; then pnpm exec stylelint $$scssfiles; fi && \
-	if [ -n "$$prettyfiles" ]; then pnpm exec biome format $$prettyfiles; fi
+	if [ -n "$$tsfiles" ]; then npm run eslint -- $$tsfiles; fi && \
+	if [ -n "$$scssfiles" ]; then npm run stylelint -- $$scssfiles; fi && \
+	if [ -n "$$prettyfiles" ]; then npm run prettier -- --check $$prettyfiles; fi
 
 # runs all of the backend PR-acceptance steps
 .PHONY: validate-backend
@@ -453,13 +445,3 @@ start-compiler-container:
 .PHONY: remove-compiler-container
 remove-compiler-container:
 	docker rm -f -v build
-
-.PHONY: install
-install:
-ifdef IS_WIN_SHELL
-	@if not exist "$(PREFIX)" mkdir $(PREFIX)
-	@copy "$(STASH_BINARY).exe" "$(PREFIX)\\stash.exe"
-else
-	@mkdir -p $(PREFIX)/bin
-	@install -m 755 $(STASH_BINARY) $(PREFIX)/bin/stash
-endif

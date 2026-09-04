@@ -262,9 +262,7 @@ func (j *GenerateJob) Execute(ctx context.Context, progress *job.Progress) error
 
 	for f := range queue {
 		if job.IsCancelled(ctx) {
-			// keep draining the queue so the producer goroutine can finish
-			// and release its read transaction, otherwise the DB stays locked
-			continue
+			break
 		}
 
 		wg.Add()

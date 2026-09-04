@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/99designs/gqlgen/graphql"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
@@ -36,7 +37,14 @@ func gqlErrorHandler(ctx context.Context, e error) *gqlerror.Error {
 		}
 	}
 
-	// we may also want to transform the error message for the response
-	// for now just return the original error
-	return graphql.DefaultErrorPresenter(ctx, e)
+	presented := graphql.DefaultErrorPresenter(ctx, e)
+	var clientError authz.ClientError
+	if errors.As(e, &clientError) {
+		presented.Message = clientError.PublicMessage()
+		if presented.Extensions == nil {
+			presented.Extensions = map[string]interface{}{}
+		}
+		presented.Extensions["code"] = clientError.Code()
+	}
+	return presented
 }

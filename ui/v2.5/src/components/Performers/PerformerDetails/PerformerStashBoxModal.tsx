@@ -80,7 +80,7 @@ const PerformerSearchResultDetails: React.FC<
     }
   }
 
-  const age = calculateAge();
+  let age = calculateAge();
 
   return (
     <div className="performer-result">
@@ -190,6 +190,7 @@ const PerformerStashBoxModal: React.FC<IProps> = ({
         </div>
         <ul className={CLASSNAME_LIST}>
           {performers.map((p, i) => (
+            // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions, react/no-array-index-key
             <li key={i} onClick={() => onSelectPerformer(p)}>
               <PerformerSearchResult performer={p} />
             </li>

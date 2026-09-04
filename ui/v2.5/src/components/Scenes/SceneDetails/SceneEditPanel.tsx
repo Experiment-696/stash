@@ -54,7 +54,8 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 
 const SceneScrapeDialog = lazyComponent(() => import("./SceneScrapeDialog"));
 const SceneQueryModal = lazyComponent(() => import("./SceneQueryModal"));
@@ -78,6 +79,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
 }) => {
   const intl = useIntl();
   const Toast = useToast();
+  const { isAdmin } = useRoleCapabilities();
 
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [performers, setPerformers] = useState<Performer[]>([]);
@@ -85,22 +87,8 @@ export const SceneEditPanel: React.FC<IProps> = ({
   const [studio, setStudio] = useState<Studio | null>(null);
 
   const Scrapers = useListSceneScrapers();
-
-  const fragmentScrapers: GQL.Scraper[] = useMemo(() => {
-    return (
-      Scrapers?.data?.listScrapers?.filter((s) =>
-        s.scene?.supported_scrapes.includes(GQL.ScrapeType.Fragment)
-      ) ?? []
-    );
-  }, [Scrapers.data?.listScrapers]);
-
-  const queryableScrapers: GQL.Scraper[] = useMemo(() => {
-    return (
-      Scrapers?.data?.listScrapers?.filter((s) =>
-        s.scene?.supported_scrapes.includes(GQL.ScrapeType.Name)
-      ) ?? []
-    );
-  }, [Scrapers.data?.listScrapers]);
+  const [fragmentScrapers, setFragmentScrapers] = useState<GQL.Scraper[]>([]);
+  const [queryableScrapers, setQueryableScrapers] = useState<GQL.Scraper[]>([]);
 
   const [scraper, setScraper] = useState<GQL.ScraperSourceInput>();
   const [isScraperQueryModalOpen, setIsScraperQueryModalOpen] =
@@ -189,11 +177,24 @@ export const SceneEditPanel: React.FC<IProps> = ({
   const [customFieldsError, setCustomFieldsError] = useState<string>();
 
   function submit(values: InputValues) {
+    const castValues = schema.cast(values);
     const input = {
-      ...schema.cast(values),
+      ...castValues,
       custom_fields: formatCustomFieldInput(isNew, values.custom_fields),
     };
-    onSave(input);
+    if (isAdmin) {
+      onSave(input);
+      return;
+    }
+
+    // Moderator updates must contain only the descriptive fields accepted by
+    // the backend allowlist, even when forbidden form defaults are unchanged.
+    const {
+      cover_image: _coverImage,
+      custom_fields: _customFields,
+      ...descriptive
+    } = input;
+    onSave(descriptive as GQL.SceneCreateInput);
   }
 
   const formik = useFormik<InputValues>({
@@ -273,6 +274,20 @@ export const SceneEditPanel: React.FC<IProps> = ({
     }
   });
 
+  useEffect(() => {
+    const toFilter = Scrapers?.data?.listScrapers ?? [];
+
+    const newFragmentScrapers = toFilter.filter((s) =>
+      s.scene?.supported_scrapes.includes(GQL.ScrapeType.Fragment)
+    );
+    const newQueryableScrapers = toFilter.filter((s) =>
+      s.scene?.supported_scrapes.includes(GQL.ScrapeType.Name)
+    );
+
+    setFragmentScrapers(newFragmentScrapers);
+    setQueryableScrapers(newQueryableScrapers);
+  }, [Scrapers, stashConfig]);
+
   function onSetGroups(items: Group[]) {
     setGroups(items);
 
@@ -293,7 +308,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     formik.setFieldValue("groups", newGroups);
   }
 
-  async function onSave(input: InputValues, andNew?: boolean) {
+  async function onSave(input: GQL.SceneCreateInput, andNew?: boolean) {
     setIsLoading(true);
     try {
       await onSubmit(input, andNew);
@@ -330,7 +345,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     setIsLoading(true);
     try {
       const result = await queryScrapeScene(s, scene.id!);
-      if (!result.data?.scrapeSingleScene?.length) {
+      if (!result.data || !result.data.scrapeSingleScene?.length) {
         Toast.success("No scenes found");
         return;
       }
@@ -361,7 +376,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       };
 
       const result = await queryScrapeSceneQueryFragment(s, input);
-      if (!result.data?.scrapeSingleScene?.length) {
+      if (!result.data || !result.data.scrapeSingleScene?.length) {
         Toast.success("No scenes found");
         return;
       }
@@ -488,7 +503,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
       formik.setFieldValue("urls", updatedScene.urls);
     }
 
-    if (updatedScene.studio?.stored_id) {
+    if (updatedScene.studio && updatedScene.studio.stored_id) {
       onSetStudio({
         id: updatedScene.studio.stored_id,
         name: updatedScene.studio.name ?? "",
@@ -576,7 +591,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     setIsLoading(true);
     try {
       const result = await queryScrapeSceneURL(url);
-      if (!result.data?.scrapeSceneURL) {
+      if (!result.data || !result.data.scrapeSceneURL) {
         return;
       }
       setScrapedScene(result.data.scrapeSceneURL);
@@ -689,7 +704,7 @@ export const SceneEditPanel: React.FC<IProps> = ({
     const date = (() => {
       try {
         return schema.validateSyncAt("date", formik.values);
-      } catch (_e) {
+      } catch (e) {
         return undefined;
       }
     })();
@@ -875,25 +890,29 @@ export const SceneEditPanel: React.FC<IProps> = ({
           </Col>
           <Col lg={5} xl={12}>
             {renderDetailsField()}
-            <Form.Group controlId="cover_image">
-              <Form.Label>
-                <FormattedMessage id="cover_image" />
-              </Form.Label>
-              {image}
-              <ImageInput
-                isEditing
-                onImageChange={onCoverImageChange}
-                onImageURL={onImageLoad}
-                onReset={scene.id ? onResetCover : undefined}
-              />
-            </Form.Group>
+            {isAdmin && (
+              <Form.Group controlId="cover_image">
+                <Form.Label>
+                  <FormattedMessage id="cover_image" />
+                </Form.Label>
+                {image}
+                <ImageInput
+                  isEditing
+                  onImageChange={onCoverImageChange}
+                  onImageURL={onImageLoad}
+                  onReset={scene.id ? onResetCover : undefined}
+                />
+              </Form.Group>
+            )}
 
-            <CustomFieldsInput
-              values={formik.values.custom_fields}
-              onChange={(v) => formik.setFieldValue("custom_fields", v)}
-              error={customFieldsError}
-              setError={(e) => setCustomFieldsError(e)}
-            />
+            {isAdmin && (
+              <CustomFieldsInput
+                values={formik.values.custom_fields}
+                onChange={(v) => formik.setFieldValue("custom_fields", v)}
+                error={customFieldsError}
+                setError={(e) => setCustomFieldsError(e)}
+              />
+            )}
           </Col>
         </Row>
       </Form>

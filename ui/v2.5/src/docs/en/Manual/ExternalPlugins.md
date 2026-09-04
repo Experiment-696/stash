@@ -1,4 +1,4 @@
-# External plugin tasks
+# External Plugin Tasks
 
 External plugin tasks are executed by running an external binary.
 

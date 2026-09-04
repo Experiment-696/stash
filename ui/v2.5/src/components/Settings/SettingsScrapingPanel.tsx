@@ -27,6 +27,7 @@ import {
 import { ExternalLink } from "../Shared/ExternalLink";
 import { ClearableInput } from "../Shared/ClearableInput";
 import { Counter } from "../Shared/Counter";
+import { SettingsCamGirlFinderPanel } from "./SettingsCamGirlFinderPanel";
 
 const ScraperTable: React.FC<
   PropsWithChildren<{
@@ -351,6 +352,7 @@ export const SettingsScrapingPanel: React.FC = () => {
 
   return (
     <>
+      <SettingsCamGirlFinderPanel />
       <StashBoxSetting
         value={general.stashBoxes ?? []}
         onChange={(v) => saveGeneral({ stashBoxes: v })}

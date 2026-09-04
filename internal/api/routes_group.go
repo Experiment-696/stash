@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/static"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
@@ -29,9 +30,9 @@ func (rs groupRoutes) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Route("/{groupId}", func(r chi.Router) {
-		r.Use(rs.GroupCtx)
-		r.Get("/frontimage", rs.FrontImage)
-		r.Get("/backimage", rs.BackImage)
+		library := r.With(requireCapability(authz.LibraryRead), rs.GroupCtx)
+		library.Get("/frontimage", rs.FrontImage)
+		library.Get("/backimage", rs.BackImage)
 	})
 
 	return r

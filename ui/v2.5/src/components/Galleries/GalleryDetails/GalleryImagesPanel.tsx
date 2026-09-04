@@ -71,8 +71,8 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
       );
 
       async function setCover(
-        _result: GQL.FindImagesQueryResult,
-        _filter: ListFilterModel,
+        result: GQL.FindImagesQueryResult,
+        filter: ListFilterModel,
         selectedIds: Set<string>
       ) {
         const coverImageID = selectedIds.values().next();
@@ -102,8 +102,8 @@ export const GalleryImagesPanel: React.FC<IGalleryDetailsProps> =
       }
 
       async function removeImages(
-        _result: GQL.FindImagesQueryResult,
-        _filter: ListFilterModel,
+        result: GQL.FindImagesQueryResult,
+        filter: ListFilterModel,
         selectedIds: Set<string>
       ) {
         try {

@@ -31,6 +31,9 @@ fragment SlimPerformerData on Performer {
     updated_at
   }
   rating100
+  rating100_sum
+  rating100_count
+  rating100_average
   death_date
   weight
 }

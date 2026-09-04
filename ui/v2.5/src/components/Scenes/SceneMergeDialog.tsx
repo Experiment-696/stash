@@ -26,11 +26,7 @@ import { ScrapeDialog } from "../Shared/ScrapeDialog/ScrapeDialog";
 import { clone, uniq } from "lodash-es";
 import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import { ModalComponent } from "../Shared/Modal";
-import {
-  idToStoredID,
-  sortStoredIdObjects,
-  uniqIDStoredIDs,
-} from "src/utils/data";
+import { sortStoredIdObjects, uniqIDStoredIDs } from "src/utils/data";
 import {
   CustomFieldScrapeResults,
   ObjectListScrapeResult,
@@ -57,13 +53,6 @@ interface ISceneMergeDetailsProps {
   sources: GQL.SceneDataFragment[];
   dest: GQL.SceneDataFragment;
   onClose: (options?: MergeOptions) => void;
-}
-
-function groupToStoredID(o: { group: { id: string; name: string } }) {
-  return {
-    stored_id: o.group.id,
-    name: o.group.name,
-  };
 }
 
 const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
@@ -101,6 +90,20 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
   const [playDuration, setPlayDuration] = useState(
     new ScrapeResult<number>(dest.play_duration)
   );
+
+  function idToStoredID(o: { id: string; name: string }) {
+    return {
+      stored_id: o.id,
+      name: o.name,
+    };
+  }
+
+  function groupToStoredID(o: { group: { id: string; name: string } }) {
+    return {
+      stored_id: o.group.id,
+      name: o.group.name,
+    };
+  }
 
   const [studio, setStudio] = useState<ScrapeResult<GQL.ScrapedStudio>>(
     new ScrapeResult<GQL.ScrapedStudio>(
@@ -199,7 +202,7 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     setCode(
       new ScrapeResult(dest.code, sources.find((s) => s.code)?.code, !dest.code)
     );
-    setURL(new ScrapeResult(dest.urls, uniq(all.flatMap((s) => s.urls))));
+    setURL(new ScrapeResult(dest.urls, uniq(all.map((s) => s.urls).flat())));
     setDate(
       new ScrapeResult(dest.date, sources.find((s) => s.date)?.date, !dest.date)
     );
@@ -222,13 +225,13 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     setPerformers(
       new ObjectListScrapeResult<GQL.ScrapedPerformer>(
         sortStoredIdObjects(dest.performers.map(idToStoredID)),
-        uniqIDStoredIDs(all.flatMap((s) => s.performers.map(idToStoredID)))
+        uniqIDStoredIDs(all.map((s) => s.performers.map(idToStoredID)).flat())
       )
     );
     setTags(
       new ObjectListScrapeResult<GQL.ScrapedTag>(
         sortStoredIdObjects(dest.tags.map(idToStoredID)),
-        uniqIDStoredIDs(all.flatMap((s) => s.tags.map(idToStoredID)))
+        uniqIDStoredIDs(all.map((s) => s.tags.map(idToStoredID)).flat())
       )
     );
     setDetails(
@@ -242,14 +245,14 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
     setGroups(
       new ObjectListScrapeResult<GQL.ScrapedGroup>(
         sortStoredIdObjects(dest.groups.map(groupToStoredID)),
-        uniqIDStoredIDs(all.flatMap((s) => s.groups.map(groupToStoredID)))
+        uniqIDStoredIDs(all.map((s) => s.groups.map(groupToStoredID)).flat())
       )
     );
 
     setGalleries(
       new ScrapeResult(
         dest.galleries.map((p) => p.id),
-        uniq(all.flatMap((s) => s.galleries.map((p) => p.id)))
+        uniq(all.map((s) => s.galleries.map((p) => p.id)).flat())
       )
     );
 
@@ -293,7 +296,8 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
       new ScrapeResult(
         dest.stash_ids,
         all
-          .flatMap((s) => s.stash_ids)
+          .map((s) => s.stash_ids)
+          .flat()
           .filter((s, index, a) => {
             // remove entries with duplicate endpoints
             return index === a.findIndex((ss) => ss.endpoint === s.endpoint);
@@ -583,17 +587,9 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
           title={intl.formatMessage({ id: "stash_id" })}
           result={stashIDs}
           originalField={
-            <StashIDsField
-              values={stashIDs?.originalValue ?? []}
-              linkType="scenes"
-            />
+            <StashIDsField values={stashIDs?.originalValue ?? []} />
           }
-          newField={
-            <StashIDsField
-              values={stashIDs?.newValue ?? []}
-              linkType="scenes"
-            />
-          }
+          newField={<StashIDsField values={stashIDs?.newValue ?? []} />}
           onChange={(value) => setStashIDs(value)}
           alwaysShow={
             !!stashIDs.originalValue?.length || !!stashIDs.newValue?.length
@@ -639,7 +635,8 @@ const SceneMergeDetails: React.FC<ISceneMergeDetailsProps> = ({
         groups: groups.getNewValue()?.map((m) => {
           // find the equivalent group in the original scenes
           const found = all
-            .flatMap((s) => s.groups)
+            .map((s) => s.groups)
+            .flat()
             .find((mm) => mm.group.id === m.stored_id);
           return {
             group_id: m.stored_id!,
@@ -740,8 +737,8 @@ export const SceneMergeModal: React.FC<ISceneMergeModalProps> = ({
   }, [scenes]);
 
   async function loadScenes() {
-    const sceneIDs = sourceScenes.map((s) => parseInt(s.id, 10));
-    sceneIDs.push(parseInt(destScene[0].id, 10));
+    const sceneIDs = sourceScenes.map((s) => parseInt(s.id));
+    sceneIDs.push(parseInt(destScene[0].id));
     const query = await queryFindFullScenesByID(sceneIDs);
     const { scenes: loadedScenes } = query.data.findScenes;
 

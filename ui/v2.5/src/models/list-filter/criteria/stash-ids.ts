@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 import { IntlShape } from "react-intl";
 import {
   CriterionModifier,
@@ -116,7 +117,7 @@ export class StashIDCriterion extends ModifierCriterion<IStashIDValue> {
 
   public toQueryParams(): Record<string, unknown> {
     super.toQueryParams();
-    let encodedCriterion: Record<string, unknown>;
+    let encodedCriterion;
     if (
       (this.modifier === CriterionModifier.IsNull ||
         this.modifier === CriterionModifier.NotNull) &&

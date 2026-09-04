@@ -62,7 +62,7 @@ export const GroupScenesPanel: React.FC<IGroupScenesPanel> = ({
 }) => {
   const filterHook = useFilterHook(group, showSubGroupContent);
 
-  if (group?.id) {
+  if (group && group.id) {
     return (
       <FilteredSceneList
         filterHook={filterHook}
@@ -73,5 +73,5 @@ export const GroupScenesPanel: React.FC<IGroupScenesPanel> = ({
       />
     );
   }
-  return null;
+  return <></>;
 };

@@ -41,6 +41,41 @@ const (
 	sceneCoverBlobColumn = "cover_blob"
 )
 
+var findExactDuplicateQuery = `
+SELECT GROUP_CONCAT(DISTINCT scene_id) as ids
+FROM (
+	SELECT scenes.id as scene_id
+		, video_files.duration as file_duration
+		, files.size as file_size
+		, files_fingerprints.fingerprint as phash
+		, abs(max(video_files.duration) OVER (PARTITION by files_fingerprints.fingerprint) - video_files.duration) as durationDiff
+	FROM scenes
+	INNER JOIN scenes_files ON (scenes.id = scenes_files.scene_id)
+	INNER JOIN files ON (scenes_files.file_id = files.id)
+	INNER JOIN files_fingerprints ON (scenes_files.file_id = files_fingerprints.file_id AND files_fingerprints.type = 'phash')
+	INNER JOIN video_files ON (files.id == video_files.file_id)
+)
+WHERE durationDiff <= ?1
+    OR ?1 < 0   --  Always TRUE if the parameter is negative.
+                --  That will disable the durationDiff checking.
+GROUP BY phash
+HAVING COUNT(phash) > 1
+	AND COUNT(DISTINCT scene_id) > 1
+ORDER BY SUM(file_size) DESC;
+`
+
+var findAllPhashesQuery = `
+SELECT scenes.id as id
+    , files_fingerprints.fingerprint as phash
+    , video_files.duration as duration
+FROM scenes
+INNER JOIN scenes_files ON (scenes.id = scenes_files.scene_id)
+INNER JOIN files ON (scenes_files.file_id = files.id)
+INNER JOIN files_fingerprints ON (scenes_files.file_id = files_fingerprints.file_id AND files_fingerprints.type = 'phash')
+INNER JOIN video_files ON (files.id == video_files.file_id)
+ORDER BY files.size DESC;
+`
+
 type sceneRow struct {
 	ID            int         `db:"id" goqu:"skipinsert"`
 	Title         zero.String `db:"title"`
@@ -617,38 +652,6 @@ func (qb *SceneStore) FindByFileID(ctx context.Context, fileID models.FileID) ([
 	return ret, nil
 }
 
-func (qb *SceneStore) GetManyIDsByFileIDs(ctx context.Context, fileIDs []models.FileID) ([][]int, error) {
-	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn), scenesFilesJoinTable.Col(fileIDColumn)).Where(
-		scenesFilesJoinTable.Col(fileIDColumn).In(fileIDs),
-	)
-
-	sql, args, err := sq.ToSQL()
-	if err != nil {
-		return nil, fmt.Errorf("building query: %w", err)
-	}
-
-	var results []struct {
-		SceneID int           `db:"scene_id"`
-		FileID  models.FileID `db:"file_id"`
-	}
-
-	if err := querySelect(ctx, sql, args, &results); err != nil {
-		return nil, fmt.Errorf("getting scenes by file ids %v: %w", fileIDs, err)
-	}
-
-	retMap := make(map[models.FileID][]int)
-	for _, r := range results {
-		retMap[r.FileID] = append(retMap[r.FileID], r.SceneID)
-	}
-
-	ret := make([][]int, len(fileIDs))
-	for i, id := range fileIDs {
-		ret[i] = retMap[id]
-	}
-
-	return ret, nil
-}
-
 func (qb *SceneStore) FindByPrimaryFileID(ctx context.Context, fileID models.FileID) ([]*models.Scene, error) {
 	sq := dialect.From(scenesFilesJoinTable).Select(scenesFilesJoinTable.Col(sceneIDColumn)).Where(
 		scenesFilesJoinTable.Col(fileIDColumn).Eq(fileID),
@@ -778,6 +781,13 @@ func (qb *SceneStore) CountByPerformerID(ctx context.Context, performerID int) (
 }
 
 func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) (int, error) {
+	if userID, ok := personalActivityUserID(ctx); ok {
+		var ret int
+		err := dbWrapper.Get(ctx, &ret, `SELECT COUNT(*) FROM user_scene_history h
+			INNER JOIN performers_scenes ps ON ps.scene_id = h.scene_id
+			WHERE h.user_id = ? AND h.kind = ? AND ps.performer_id = ?`, userID, personalOHistoryKind, performerID)
+		return ret, err
+	}
 	table := qb.table()
 	joinTable := scenesPerformersJoinTable
 	oHistoryTable := goqu.T(scenesODatesTable)
@@ -801,6 +811,13 @@ func (qb *SceneStore) OCountByPerformerID(ctx context.Context, performerID int) 
 }
 
 func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, error) {
+	if userID, ok := personalActivityUserID(ctx); ok {
+		var ret int
+		err := dbWrapper.Get(ctx, &ret, `SELECT COUNT(*) FROM user_scene_history h
+			INNER JOIN groups_scenes gs ON gs.scene_id = h.scene_id
+			WHERE h.user_id = ? AND h.kind = ? AND gs.group_id = ?`, userID, personalOHistoryKind, groupID)
+		return ret, err
+	}
 	table := qb.table()
 	joinTable := scenesGroupsJoinTable
 	oHistoryTable := goqu.T(scenesODatesTable)
@@ -823,13 +840,14 @@ func (qb *SceneStore) OCountByGroupID(ctx context.Context, groupID int) (int, er
 	return ret, nil
 }
 
-func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error) {
-	var ret int
-
-	if depth != 0 {
-		return qb.oCountByStudioIDRecursive(ctx, studioID, depth)
+func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int) (int, error) {
+	if userID, ok := personalActivityUserID(ctx); ok {
+		var ret int
+		err := dbWrapper.Get(ctx, &ret, `SELECT COUNT(*) FROM user_scene_history h
+			INNER JOIN scenes s ON s.id = h.scene_id
+			WHERE h.user_id = ? AND h.kind = ? AND s.studio_id = ?`, userID, personalOHistoryKind, studioID)
+		return ret, err
 	}
-
 	table := qb.table()
 	oHistoryTable := goqu.T(scenesODatesTable)
 
@@ -838,41 +856,11 @@ func (qb *SceneStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 		goqu.On(table.Col(idColumn).Eq(oHistoryTable.Col(sceneIDColumn))),
 	).Where(table.Col(studioIDColumn).Eq(studioID))
 
+	var ret int
 	if err := querySimple(ctx, q, &ret); err != nil {
 		return 0, err
 	}
 
-	return ret, nil
-}
-
-func (qb *SceneStore) oCountByStudioIDRecursive(ctx context.Context, studioID int, depth int) (int, error) {
-	q := `
-	WITH RECURSIVE sub_studios AS (
-		SELECT id, 0 AS level FROM studios WHERE id = ?
-		UNION ALL
-		SELECT s.id, ss.level + 1 FROM studios s
-		INNER JOIN sub_studios ss ON s.parent_id = ss.id
-		WHERE ss.level < ? OR ? < 0
-	)
-	SELECT COUNT(*) FROM scenes
-	INNER JOIN scenes_o_dates ON scenes.id = scenes_o_dates.scene_id
-	WHERE scenes.studio_id IN (SELECT id FROM sub_studios)`
-
-	rows, err := dbWrapper.QueryxContext(ctx, q, studioID, depth, depth)
-	if err != nil {
-		return 0, fmt.Errorf("querying scene o_count by studio: %w", err)
-	}
-	defer rows.Close()
-
-	var ret int
-	for rows.Next() {
-		if err := rows.Scan(&ret); err != nil {
-			return 0, fmt.Errorf("scanning scene o_count: %w", err)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("iterating scene o_count rows: %w", err)
-	}
 	return ret, nil
 }
 
@@ -1052,7 +1040,7 @@ func (qb *SceneStore) makeQuery(ctx context.Context, sceneFilter *models.SceneFi
 		return nil, err
 	}
 
-	if err := qb.setSceneSort(&query, findFilter); err != nil {
+	if err := qb.setSceneSort(ctx, &query, findFilter); err != nil {
 		return nil, err
 	}
 	query.sortAndPagination += getPagination(findFilter)
@@ -1122,11 +1110,6 @@ func (qb *SceneStore) queryGroupedFields(ctx context.Context, options models.Sce
 		aggregateQuery.addColumn("SUM(temp.size) as size")
 	}
 
-	// #5503 - select the file id so equal-sized/duration files aren't collapsed by DISTINCT
-	if options.TotalDuration || options.TotalSize {
-		query.addColumn(scenesFilesTable + ".file_id")
-	}
-
 	const includeSortPagination = false
 	aggregateQuery.from = fmt.Sprintf("(%s) as temp", query.toSQL(includeSortPagination))
 
@@ -1190,7 +1173,7 @@ var sceneSortOptions = sortOptions{
 	"performer_age",
 }
 
-func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindFilterType) error {
+func (qb *SceneStore) setSceneSort(ctx context.Context, query *queryBuilder, findFilter *models.FindFilterType) error {
 	if findFilter == nil || findFilter.Sort == nil || *findFilter.Sort == "" {
 		return nil
 	}
@@ -1304,7 +1287,11 @@ func (qb *SceneStore) setSceneSort(query *queryBuilder, findFilter *models.FindF
 	case "last_o_at":
 		query.sortAndPagination += fmt.Sprintf(" ORDER BY (SELECT MAX(o_date) FROM %s AS sort WHERE sort.%s = %s.id) %s", scenesODatesTable, sceneIDColumn, sceneTable, getSortDirection(direction))
 	case "o_counter":
-		query.sortAndPagination += getCountSort(sceneTable, scenesODatesTable, sceneIDColumn, direction)
+		if userID, ok := personalActivityUserID(ctx); ok {
+			query.sortAndPagination += " ORDER BY (" + personalSceneOCountSQL(userID, "scenes.id") + ") " + direction
+		} else {
+			query.sortAndPagination += getCountSort(sceneTable, scenesODatesTable, sceneIDColumn, direction)
+		}
 	case "performer_age":
 		// Looking at the youngest performer by default
 		aggregation := "MIN"
@@ -1468,61 +1455,11 @@ func (qb *SceneStore) GetStashIDs(ctx context.Context, sceneID int) ([]models.St
 	return sceneRepository.stashIDs.get(ctx, sceneID)
 }
 
-func (qb *SceneStore) FindDuplicates(ctx context.Context, distance int, durationDiff float64, filter *models.SceneFilterType) ([][]*models.Scene, error) {
+func (qb *SceneStore) FindDuplicates(ctx context.Context, distance int, durationDiff float64) ([][]*models.Scene, error) {
 	var dupeIds [][]int
-
-	query, err := qb.makeQuery(ctx, filter, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add necessary joins for duplicate checking
-	query.addJoins(
-		join{
-			table:    scenesFilesTable,
-			onClause: "scenes.id = scenes_files.scene_id",
-		},
-		join{
-			table:    fileTable,
-			onClause: "scenes_files.file_id = files.id",
-		},
-		join{
-			table:    fingerprintTable,
-			onClause: "scenes_files.file_id = files_fingerprints.file_id AND files_fingerprints.type = 'phash'",
-		},
-		join{
-			table:    videoFileTable,
-			onClause: "files.id = video_files.file_id",
-		},
-	)
-
 	if distance == 0 {
-		query.columns = []string{
-			"scenes.id as scene_id",
-			"video_files.duration as file_duration",
-			"files.size as file_size",
-			"files_fingerprints.fingerprint as phash",
-			"abs(max(video_files.duration) OVER (PARTITION by files_fingerprints.fingerprint) - video_files.duration) as durationDiff",
-		}
-
-		sqlStr := query.toSQL(false)
-
-		finalQuery := `
-SELECT GROUP_CONCAT(DISTINCT scene_id) as ids
-FROM (` + sqlStr + `)
-WHERE phash IS NOT NULL
-    AND (durationDiff <= ?
-    OR ? < 0)  -- Always TRUE if the parameter is negative.
-               -- That will disable the durationDiff checking.
-GROUP BY phash
-HAVING COUNT(phash) > 1
-	AND COUNT(DISTINCT scene_id) > 1
-ORDER BY SUM(file_size) DESC;
-`
-
 		var ids []string
-		args := append(query.allArgs(), durationDiff, durationDiff)
-		if err := dbWrapper.Select(ctx, &ids, finalQuery, args...); err != nil {
+		if err := dbWrapper.Select(ctx, &ids, findExactDuplicateQuery, durationDiff); err != nil {
 			return nil, err
 		}
 
@@ -1540,19 +1477,9 @@ ORDER BY SUM(file_size) DESC;
 			}
 		}
 	} else {
-		query.columns = []string{
-			"scenes.id as id",
-			"files_fingerprints.fingerprint as phash",
-			"video_files.duration as duration",
-		}
-		query.addWhere("files_fingerprints.fingerprint IS NOT NULL")
-		query.sortAndPagination = " ORDER BY files.size DESC"
-
-		sqlStr := query.toSQL(true)
-
 		var hashes []*utils.Phash
 
-		if err := sceneRepository.queryFunc(ctx, sqlStr, query.allArgs(), false, func(rows *sqlx.Rows) error {
+		if err := sceneRepository.queryFunc(ctx, findAllPhashesQuery, nil, false, func(rows *sqlx.Rows) error {
 			phash := utils.Phash{
 				Bucket:   -1,
 				Duration: -1,

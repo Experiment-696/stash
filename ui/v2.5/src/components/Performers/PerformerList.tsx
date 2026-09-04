@@ -53,6 +53,7 @@ import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { SidebarAgeFilter } from "../List/Filters/SidebarAgeFilter";
 import { PerformerListFilterOptions } from "src/models/list-filter/performers";
 import { Button } from "react-bootstrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import cx from "classnames";
 import { FavoritePerformerCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
@@ -366,6 +367,7 @@ export const FilteredPerformerList = PatchComponent(
   (props: IPerformerList) => {
     const intl = useIntl();
     const history = useHistory();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const searchFocus = useFocus();
 
@@ -432,13 +434,13 @@ export const FilteredPerformerList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -542,16 +544,17 @@ export const FilteredPerformerList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: onMerge,
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -563,8 +566,8 @@ export const FilteredPerformerList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="gallery-list-operations-dropdown"
       />
     );
@@ -600,8 +603,8 @@ export const FilteredPerformerList = PatchComponent(
                 listSelect={listSelect}
                 setFilter={setFilter}
                 showEditFilter={showEditFilter}
-                onDelete={onDelete}
-                onEdit={onEdit}
+                onDelete={isAdmin ? onDelete : undefined}
+                onEdit={canEditMetadata ? onEdit : undefined}
                 operationComponent={operations}
                 view={view}
                 zoomable

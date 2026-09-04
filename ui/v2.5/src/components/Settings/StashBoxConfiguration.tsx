@@ -136,7 +136,7 @@ export const StashBoxModal: React.FC<IStashBoxModal> = ({ value, close }) => {
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setValue({
                   ...v!,
-                  max_requests_per_minute: parseInt(e.currentTarget.value, 10),
+                  max_requests_per_minute: parseInt(e.currentTarget.value),
                 })
               }
             />
@@ -171,7 +171,7 @@ export const StashBoxSetting: React.FC<IStashBoxSetting> = ({
   }
 
   function onDelete(index: number) {
-    onChange(value.filter((_v, i) => i !== index));
+    onChange(value.filter((v, i) => i !== index));
   }
 
   function onNew() {
@@ -217,7 +217,7 @@ export const StashBoxSetting: React.FC<IStashBoxSetting> = ({
       ) : undefined}
 
       {value.map((b, index) => (
-        // XXbiome-ignore react/no-array-index-key: intentional
+        // eslint-disable-next-line react/no-array-index-key
         <div key={index} className="setting">
           <div>
             <h3>{b.name ?? `#${index}`}</h3>

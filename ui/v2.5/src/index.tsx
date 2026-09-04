@@ -7,6 +7,16 @@ import { baseURL, getPlatformURL } from "./core/createClient";
 import "./index.scss";
 import * as serviceWorker from "./serviceWorker";
 
+const chunkReloadKey = "stash-chunk-reload-at";
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  const lastReload = Number(sessionStorage.getItem(chunkReloadKey)) || 0;
+  if (Date.now() - lastReload > 10_000) {
+    sessionStorage.setItem(chunkReloadKey, String(Date.now()));
+    window.location.reload();
+  }
+});
+
 ReactDOM.render(
   <>
     <link

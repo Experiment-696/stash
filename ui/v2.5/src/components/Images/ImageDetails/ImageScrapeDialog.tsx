@@ -140,7 +140,7 @@ export const ImageScrapeDialog: React.FC<IImageScrapeDialogProps> = ({
     newTags.length === 0
   ) {
     onClose();
-    return null;
+    return <></>;
   }
 
   function makeNewScrapedItem(): GQL.ScrapedImageDataFragment {

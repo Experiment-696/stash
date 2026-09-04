@@ -1,0 +1,113 @@
+type CamClassificationRule {
+  id: ID!
+  name: String!
+  pattern: String!
+  target: String!
+  category: String!
+  enabled: Boolean!
+  tagIDs: [ID!]!
+  tags: [CamShowLibraryTag!]!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+}
+
+input CamClassificationRuleUpdateInput {
+  id: ID!
+  name: String!
+  pattern: String!
+  target: String!
+  category: String!
+  enabled: Boolean!
+  tagIDs: [ID!]!
+}
+
+input CamClassificationRuleCreateInput {
+  name: String!
+  pattern: String!
+  target: String!
+  category: String!
+  enabled: Boolean!
+  tagIDs: [ID!]!
+}
+
+type CamClassificationItem {
+  sceneID: ID!
+  matched: Boolean!
+  applied: Boolean!
+  skipped: Boolean!
+  conflict: String!
+  category: String!
+  tagIDs: [ID!]!
+}
+
+type CamClassificationResult {
+  matched: Int!
+  applied: Int!
+  skipped: Int!
+  conflicted: Int!
+  items: [CamClassificationItem!]!
+}
+
+type CamShowLibraryTag {
+  id: ID!
+  name: String!
+}
+
+type CamShowDomainSite { id: ID!, name: String!, icon: String }
+type CamShowDomainLink { id: ID!, linkType: String!, url: String!, label: String }
+type CamShowDomainModel { modelID: ID!, displayName: String!, role: String! }
+
+enum CamShowSortMode {
+  DEFAULT
+  FAVORITE_MODELS_FIRST
+}
+
+type CamShowLibraryItem {
+  id: ID!
+  sceneID: ID!
+  title: String!
+  showType: String!
+  showDate: Timestamp
+  capturedAt: Timestamp
+  capturedTimezone: String
+  capturedPrecision: String
+  durationSeconds: Float
+  durationOverridden: Boolean!
+  durationOverrideReason: String
+  details: String
+  tags: [CamShowLibraryTag!]!
+  sites: [CamShowDomainSite!]!
+  links: [CamShowDomainLink!]!
+  models: [CamShowDomainModel!]!
+}
+
+input CamShowCoreUpdateInput {
+  id: ID!
+  title: String!
+  showType: String!
+  showDate: Timestamp
+  capturedAt: Timestamp
+  capturedTimezone: String
+  capturedPrecision: String
+  durationOverrideSeconds: Float
+  durationOverrideReason: String
+  details: String
+}
+
+extend type Query {
+  camShows(sort: CamShowSortMode! = DEFAULT): [CamShowLibraryItem!]!
+  camClassificationRules: [CamClassificationRule!]!
+  camClassificationPreview: CamClassificationResult!
+}
+
+extend type Mutation {
+  camShowUpdate(input: CamShowCoreUpdateInput!): CamShowLibraryItem!
+  camClassificationRuleCreate(
+    input: CamClassificationRuleCreateInput!
+  ): CamClassificationRule!
+  camClassificationRuleUpdate(
+    input: CamClassificationRuleUpdateInput!
+  ): CamClassificationRule!
+  camClassificationRuleSetEnabled(id: ID!, enabled: Boolean!): Boolean!
+  camClassificationApply: CamClassificationResult!
+}

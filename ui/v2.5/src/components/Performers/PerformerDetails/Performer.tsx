@@ -5,10 +5,13 @@ import { useHistory, Redirect, RouteComponentProps } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import cx from "classnames";
 import Mousetrap from "mousetrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import * as GQL from "src/core/generated-graphql";
 import {
   useFindPerformer,
   usePerformerUpdate,
+  usePerformerSetFavorite,
+  usePerformerSetRating,
   usePerformerDestroy,
   mutateMetadataAutoTag,
 } from "src/core/StashService";
@@ -82,12 +85,12 @@ const PerformerTabs: React.FC<{
 }> = ({ tabKey, performer, abbreviateCounter }) => {
   const populatedDefaultTab = useMemo(() => {
     let ret: TabKey = "scenes";
-    if (performer.scene_count === 0) {
-      if (performer.gallery_count !== 0) {
+    if (performer.scene_count == 0) {
+      if (performer.gallery_count != 0) {
         ret = "galleries";
-      } else if (performer.image_count !== 0) {
+      } else if (performer.image_count != 0) {
         ret = "images";
-      } else if (performer.group_count !== 0) {
+      } else if (performer.group_count != 0) {
         ret = "groups";
       }
     }
@@ -95,7 +98,7 @@ const PerformerTabs: React.FC<{
     return ret;
   }, [performer]);
 
-  const { activeTabKey, setTabKey } = useTabKey({
+  const { setTabKey } = useTabKey({
     tabKey,
     validTabs,
     defaultTabKey: populatedDefaultTab,
@@ -119,7 +122,7 @@ const PerformerTabs: React.FC<{
       id="performer-tabs"
       mountOnEnter
       unmountOnExit
-      activeKey={activeTabKey}
+      activeKey={tabKey}
       onSelect={setTabKey}
     >
       <Tab
@@ -133,7 +136,7 @@ const PerformerTabs: React.FC<{
         }
       >
         <PerformerScenesPanel
-          active={activeTabKey === "scenes"}
+          active={tabKey === "scenes"}
           performer={performer}
         />
       </Tab>
@@ -149,7 +152,7 @@ const PerformerTabs: React.FC<{
         }
       >
         <PerformerGalleriesPanel
-          active={activeTabKey === "galleries"}
+          active={tabKey === "galleries"}
           performer={performer}
         />
       </Tab>
@@ -165,7 +168,7 @@ const PerformerTabs: React.FC<{
         }
       >
         <PerformerImagesPanel
-          active={activeTabKey === "images"}
+          active={tabKey === "images"}
           performer={performer}
         />
       </Tab>
@@ -181,7 +184,7 @@ const PerformerTabs: React.FC<{
         }
       >
         <PerformerGroupsPanel
-          active={activeTabKey === "groups"}
+          active={tabKey === "groups"}
           performer={performer}
         />
       </Tab>
@@ -197,7 +200,7 @@ const PerformerTabs: React.FC<{
         }
       >
         <PerformerAppearsWithPanel
-          active={activeTabKey === "appearswith"}
+          active={tabKey === "appearswith"}
           performer={performer}
         />
       </Tab>
@@ -242,6 +245,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
 
     // Configuration settings
     const { configuration } = useConfigurationContext();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
     const uiConfig = configuration?.ui;
     const abbreviateCounter = uiConfig?.abbreviateCounters ?? false;
     const enableBackgroundImage =
@@ -276,6 +280,8 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     );
 
     const [updatePerformer] = usePerformerUpdate();
+    const [setPerformerFavorite] = usePerformerSetFavorite();
+    const [setPerformerRating] = usePerformerSetRating();
     const [deletePerformer, { loading: isDestroying }] = usePerformerDestroy();
 
     async function onAutoTag() {
@@ -288,6 +294,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     }
 
     function renderMergeButton() {
+      if (!isAdmin) return null;
       return (
         <Button variant="secondary" onClick={() => setIsMerging(true)}>
           <FormattedMessage id="actions.merge" />
@@ -297,7 +304,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
     }
 
     function renderMergeDialog() {
-      if (!performer.id) return;
+      if (!isAdmin || !performer.id) return;
       return (
         <PerformerMergeModal
           show={isMerging}
@@ -322,7 +329,9 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
 
     // set up hotkeys
     useEffect(() => {
-      Mousetrap.bind("e", () => toggleEditing());
+      Mousetrap.bind("e", () => {
+        if (canEditMetadata) toggleEditing();
+      });
       Mousetrap.bind("f", () => setFavorite(!performer.favorite));
       Mousetrap.bind(",", () => setCollapsed(!collapsed));
 
@@ -375,12 +384,10 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
 
     function setFavorite(v: boolean) {
       if (performer.id) {
-        updatePerformer({
+        setPerformerFavorite({
           variables: {
-            input: {
-              id: performer.id,
-              favorite: v,
-            },
+            id: performer.id,
+            favorite: v,
           },
         });
       }
@@ -388,12 +395,10 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
 
     function setRating(v: number | null) {
       if (performer.id) {
-        updatePerformer({
+        setPerformerRating({
           variables: {
-            input: {
-              id: performer.id,
-              rating100: v,
-            },
+            id: performer.id,
+            rating100: v,
           },
         });
       }
@@ -460,6 +465,14 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     clickToRate
                     withoutContext
                   />
+                  <span
+                    className="performer-rating-average"
+                    aria-label="Global average rating"
+                    title="Global average rating"
+                  >
+                    Global {performer.rating100_average.toFixed(1)}/100 (
+                    {performer.rating100_count})
+                  </span>
                   {!!performer.o_counter && (
                     <OCounterButton value={performer.o_counter} />
                   )}
@@ -471,7 +484,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     fullWidth={!collapsed && !compactExpandedDetails}
                   />
                 )}
-                {isEditing ? (
+                {isEditing && canEditMetadata ? (
                   <PerformerEditPanel
                     performer={performer}
                     isVisible={isEditing}
@@ -480,7 +493,7 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                     setImage={setImage}
                     setEncodingImage={setEncodingImage}
                   />
-                ) : (
+                ) : canEditMetadata ? (
                   <Col>
                     <Row xs={8}>
                       <DetailsEditNavbar
@@ -489,8 +502,8 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                           intl.formatMessage({ id: "performer" })
                         }
                         onToggleEdit={() => toggleEditing()}
-                        onDelete={onDelete}
-                        onAutoTag={onAutoTag}
+                        onDelete={isAdmin ? onDelete : undefined}
+                        onAutoTag={isAdmin ? onAutoTag : undefined}
                         autoTagDisabled={performer.ignore_auto_tag}
                         isNew={false}
                         isEditing={false}
@@ -500,15 +513,17 @@ const PerformerPage: React.FC<IProps> = PatchComponent(
                         customButtons={
                           <>
                             {renderMergeButton()}
-                            <div>
-                              <PerformerSubmitButton performer={performer} />
-                            </div>
+                            {isAdmin && (
+                              <div>
+                                <PerformerSubmitButton performer={performer} />
+                              </div>
+                            )}
                           </>
                         }
                       ></DetailsEditNavbar>
                     </Row>
                   </Col>
-                )}
+                ) : null}
               </div>
             </div>
           </div>

@@ -1,12 +1,12 @@
 function determineSlidesToScroll(
   cardCount: number,
-  preferred: number,
+  prefered: number,
   isTouch: boolean
 ) {
   if (isTouch) {
     return 1;
-  } else if (cardCount! > preferred) {
-    return preferred;
+  } else if (cardCount! > prefered) {
+    return prefered;
   } else {
     return cardCount;
   }

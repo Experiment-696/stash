@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/performer"
 	"github.com/stashapp/stash/pkg/plugin/hook"
@@ -15,6 +16,66 @@ import (
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
 	"github.com/stashapp/stash/pkg/utils"
 )
+
+func (r *mutationResolver) PerformerSetFavorite(ctx context.Context, id string, favorite bool) (*models.Performer, error) {
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
+	performerID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, fmt.Errorf("converting id: %w", err)
+	}
+	var ret *models.Performer
+	err = r.withTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().Performer.Find(txCtx, performerID)
+		if err != nil {
+			return err
+		}
+		if ret == nil {
+			return errors.New("performer not found")
+		}
+		return r.tokenDatabase().PersonalState.SetPerformerFavorite(txCtx, userID, int64(performerID), favorite)
+	})
+	if err != nil {
+		return nil, personalDataError("set performer favorite", err)
+	}
+	return ret, err
+}
+
+func (r *mutationResolver) PerformerSetRating(ctx context.Context, id string, rating100 *int) (*models.Performer, error) {
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
+	performerID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, fmt.Errorf("converting id: %w", err)
+	}
+	var ret *models.Performer
+	err = r.withTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().Performer.Find(txCtx, performerID)
+		if err != nil {
+			return err
+		}
+		if ret == nil {
+			return errors.New("performer not found")
+		}
+		return r.tokenDatabase().PersonalState.SetPerformerRating(txCtx, userID, int64(performerID), rating100)
+	})
+	if err != nil {
+		return nil, personalDataError("set performer rating", err)
+	}
+	return ret, err
+}
 
 const (
 	twitterURL   = "https://twitter.com"
@@ -353,6 +414,9 @@ func performerPartialFromInput(input models.PerformerUpdateInput, translator cha
 }
 
 func (r *mutationResolver) PerformerUpdate(ctx context.Context, input models.PerformerUpdateInput) (*models.Performer, error) {
+	if err := validateModeratorMetadataFields(ctx, getUpdateInputMap(ctx), moderatorPerformerUpdateFields); err != nil {
+		return nil, err
+	}
 	performerID, err := strconv.Atoi(input.ID)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -435,6 +499,9 @@ func (r *mutationResolver) PerformerUpdate(ctx context.Context, input models.Per
 }
 
 func (r *mutationResolver) BulkPerformerUpdate(ctx context.Context, input BulkPerformerUpdateInput) ([]*models.Performer, error) {
+	if err := validateModeratorMetadataFields(ctx, getUpdateInputMap(ctx), moderatorBulkPerformerUpdateFields); err != nil {
+		return nil, err
+	}
 	performerIDs, err := stringslice.StringSliceToIntSlice(input.Ids)
 	if err != nil {
 		return nil, fmt.Errorf("converting ids: %w", err)
@@ -654,7 +721,7 @@ func (r *mutationResolver) PerformerMerge(ctx context.Context, input PerformerMe
 		}
 		legacyURLs := legacyPerformerURLsFromInput(*input.Values, translator)
 		if legacyURLs.AnySet() {
-			return nil, errors.New("merging legacy performer URLs is not supported")
+			return nil, errors.New("Merging legacy performer URLs is not supported")
 		}
 
 		if input.Values.Image != nil {

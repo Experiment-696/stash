@@ -5,6 +5,7 @@ import (
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/models"
 )
 
@@ -95,6 +96,28 @@ func (r *imageResolver) Galleries(ctx context.Context, obj *models.Image) (ret [
 
 func (r *imageResolver) Rating100(ctx context.Context, obj *models.Image) (*int, error) {
 	return obj.Rating, nil
+}
+
+func (r *imageResolver) OCounter(ctx context.Context, obj *models.Image) (*int, error) {
+	principal, err := authz.RequireContext(ctx, authz.AccountSelfRead)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
+
+	var count int
+	if err := r.withReadTxn(ctx, func(ctx context.Context) error {
+		var loadErr error
+		count, loadErr = r.tokenDatabase().Activity.ImageO(ctx, userID, int64(obj.ID))
+		return loadErr
+	}); err != nil {
+		return nil, personalDataError("load image O-counter", err)
+	}
+
+	return &count, nil
 }
 
 func (r *imageResolver) Studio(ctx context.Context, obj *models.Image) (ret *models.Studio, err error) {

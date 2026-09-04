@@ -54,6 +54,9 @@ const useContainingGroupFilterHook = (
       filter.criteria.push(groupCriterion);
     }
 
+    filter.sortBy = "sub_group_order";
+    filter.sortDirection = GQL.SortDirectionEnum.Asc;
+
     return filter;
   };
 };
@@ -63,6 +66,18 @@ interface IGroupSubGroupsPanel {
   group: GQL.GroupDataFragment;
   extraOperations?: IItemListOperation<GQL.FindGroupsQueryResult>[];
 }
+
+const defaultFilter = (() => {
+  const sortBy = "sub_group_order";
+  const ret = new ListFilterModel(GQL.FilterMode.Groups, undefined, {
+    defaultSortBy: sortBy,
+  });
+
+  // unset the sort by so that its not included in the URL
+  ret.sortBy = undefined;
+
+  return ret;
+})();
 
 export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
   PatchComponent(
@@ -78,8 +93,8 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
       const filterHook = useContainingGroupFilterHook(group);
 
       async function removeSubGroups(
-        _result: GQL.FindGroupsQueryResult,
-        _filter: ListFilterModel,
+        result: GQL.FindGroupsQueryResult,
+        filter: ListFilterModel,
         selectedIds: Set<string>
       ) {
         try {
@@ -148,8 +163,7 @@ export const GroupSubGroupsPanel: React.FC<IGroupSubGroupsPanel> =
         <>
           {modal}
           <FilteredGroupList
-            defaultSort="sub_group_order"
-            manualSortBy="sub_group_order"
+            defaultFilter={defaultFilter}
             filterHook={filterHook}
             alterQuery={active}
             fromGroupId={group.id}

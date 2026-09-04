@@ -45,13 +45,13 @@ func (f *FFMpeg) InitHWSupport(ctx context.Context) {
 
 	// log if the initialization takes too long
 	const hwInitLogTimeoutSecondsDefault = 5
-	hwInitLogTimeout := hwInitLogTimeoutSecondsDefault * time.Second
-	timer := time.NewTimer(hwInitLogTimeout)
+	hwInitLogTimeoutSeconds := hwInitLogTimeoutSecondsDefault * time.Second
+	timer := time.NewTimer(hwInitLogTimeoutSeconds)
 
 	go func() {
 		select {
 		case <-timer.C:
-			logger.Warnf("[InitHWSupport] Hardware codec initialization is taking longer than %s...", hwInitLogTimeout)
+			logger.Warnf("[InitHWSupport] Hardware codec initialization is taking longer than %s...", hwInitLogTimeoutSeconds)
 			logger.Info("[InitHWSupport] Hardware encoding will not be available until initialization is complete.")
 		case <-done:
 			if !timer.Stop() {
@@ -96,16 +96,16 @@ func (f *FFMpeg) initHWSupport(ctx context.Context) {
 
 		// #6064 - add timeout to context to prevent hangs
 		const hwTestTimeoutSecondsDefault = 10
-		hwTestTimeout := hwTestTimeoutSecondsDefault * time.Second
+		hwTestTimeoutSeconds := hwTestTimeoutSecondsDefault * time.Second
 
 		// allow timeout to be overridden with environment variable
 		if timeout := os.Getenv("STASH_HW_TEST_TIMEOUT"); timeout != "" {
 			if seconds, err := strconv.Atoi(timeout); err == nil {
-				hwTestTimeout = time.Duration(seconds) * time.Second
+				hwTestTimeoutSeconds = time.Duration(seconds) * time.Second
 			}
 		}
 
-		testCtx, cancel := context.WithTimeout(ctx, hwTestTimeout)
+		testCtx, cancel := context.WithTimeout(ctx, hwTestTimeoutSeconds)
 		defer cancel()
 
 		cmd := f.Command(testCtx, args)
@@ -117,7 +117,7 @@ func (f *FFMpeg) initHWSupport(ctx context.Context) {
 
 		if err := cmd.Run(); err != nil {
 			if testCtx.Err() != nil {
-				logger.Debugf("[InitHWSupport] Codec %s test timed out after %s", codec, hwTestTimeout)
+				logger.Debugf("[InitHWSupport] Codec %s test timed out after %s", codec, hwTestTimeoutSeconds)
 				continue
 			}
 

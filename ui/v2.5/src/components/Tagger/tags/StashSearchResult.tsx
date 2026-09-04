@@ -7,10 +7,8 @@ import TagModal from "./TagModal";
 import { faTags } from "@fortawesome/free-solid-svg-icons";
 import { useIntl } from "react-intl";
 import { mergeTagStashIDs } from "../utils";
-import { TagOperation } from "../constants";
 import { useTagCreate } from "src/core/StashService";
 import { apolloError } from "src/utils";
-import { uniq } from "lodash-es";
 
 interface IStashSearchResultProps {
   tag: GQL.TagListDataFragment;
@@ -21,7 +19,6 @@ interface IStashSearchResultProps {
       Partial<Omit<GQL.TagListDataFragment, "id">>
   ) => void;
   excludedTagFields: string[];
-  tagOperation: TagOperation;
 }
 
 const StashSearchResult: React.FC<IStashSearchResultProps> = ({
@@ -30,7 +27,6 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
   onTagTagged,
   excludedTagFields,
   endpoint,
-  tagOperation,
 }) => {
   const intl = useIntl();
 
@@ -92,15 +88,6 @@ const StashSearchResult: React.FC<IStashSearchResultProps> = ({
       tag.id,
       input.stash_ids ?? []
     );
-
-    if (input.aliases) {
-      if (tagOperation === "merge") {
-        const existingAliases = tag.aliases ?? [];
-        updateData.aliases = uniq(existingAliases.concat(input.aliases));
-      } else {
-        updateData.aliases = input.aliases;
-      }
-    }
 
     const res = await updateTag(updateData);
 

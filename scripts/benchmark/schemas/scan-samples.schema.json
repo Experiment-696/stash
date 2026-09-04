@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/scan-samples.schema.json",
+  "title": "Stash scan benchmark raw samples",
+  "type": "array",
+  "minItems": 5,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["operation", "files", "bytes", "seconds", "digest"],
+    "properties": {
+      "operation": { "enum": ["initial_scan", "unchanged_rescan"] },
+      "files": { "type": "integer", "minimum": 1 },
+      "bytes": { "type": "integer", "minimum": 1 },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 },
+      "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 import { IntlShape } from "react-intl";
 import {
   CriterionModifier,

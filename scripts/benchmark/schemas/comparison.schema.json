@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/comparison.schema.json",
+  "title": "Stash benchmark comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "baseline_run_id", "candidate_run_id", "comparable", "forced", "status", "metrics"],
+  "properties": {
+    "schema_version": { "const": "1" }, "baseline_run_id": { "type": "string" }, "candidate_run_id": { "type": "string" },
+    "comparable": { "type": "boolean" }, "forced": { "type": "boolean" }, "status": { "enum": ["pass", "regression", "non_comparable"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "metrics": { "type": "object", "additionalProperties": { "$ref": "#/$defs/comparison_metric" } }
+  },
+  "$defs": { "comparison_metric": { "type": "object", "additionalProperties": false, "required": ["baseline_value", "candidate_value", "unit", "change_kind", "regression"], "properties": { "baseline_value": { "type": "number" }, "candidate_value": { "type": "number" }, "unit": { "type": "string" }, "change_kind": { "enum": ["percent", "unchanged_zero", "new_nonzero"] }, "change_percent": { "type": "number" }, "regression": { "type": "boolean" } } } }
+}

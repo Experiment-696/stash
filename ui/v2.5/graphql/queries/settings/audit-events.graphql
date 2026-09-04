@@ -1,0 +1,11 @@
+query AuditEvents($limit: Int! = 50, $offset: Int! = 0) {
+  auditEvents(limit: $limit, offset: $offset) {
+    id
+    occurredAt
+    actorUserId
+    eventType
+    targetType
+    targetId
+    result
+  }
+}

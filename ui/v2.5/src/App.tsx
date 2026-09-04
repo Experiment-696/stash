@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import {
   Route,
   Switch,
@@ -14,12 +14,8 @@ import { ToastProvider } from "src/hooks/Toast";
 import { LightboxProvider } from "src/hooks/Lightbox/context";
 import { initPolyfills } from "src/polyfills";
 
-import locales, { NestedMessage, registerCountry } from "src/locales";
-import {
-  useConfiguration,
-  useConfigureUI,
-  useSystemStatus,
-} from "src/core/StashService";
+import locales, { registerCountry } from "src/locales";
+import { useConfigureUISetting } from "src/core/StashService";
 import flattenMessages from "./utils/flattenMessages";
 import * as yup from "yup";
 import Mousetrap from "mousetrap";
@@ -43,25 +39,31 @@ import { getPlatformURL } from "./core/createClient";
 import { lazyComponent } from "./utils/lazyComponent";
 import { isPlatformUniquelyRenderedByApple } from "./utils/apple";
 import Event from "./hooks/event";
+import { migrationBootstrapConfiguration } from "./migrationBootstrapConfiguration";
 
 import { PluginRoutes, PluginsLoader } from "./plugins";
+import {
+  CamModelsPage,
+  isTrustedRouteEnabled,
+  ShowsPage,
+} from "./trustedExtensions";
 
 // import plugin_api to run code
 import "./pluginApi";
 import { ConnectionMonitor } from "./ConnectionMonitor";
 import { TroubleshootingModeOverlay } from "./components/TroubleshootingMode/TroubleshootingModeOverlay";
 import { PatchFunction } from "./patch";
+import { PersonalThemeLoader } from "./components/PersonalThemeLoader";
 
 import moment from "moment/min/moment-with-locales";
 import { ErrorMessage } from "./components/Shared/ErrorMessage";
 import cx from "classnames";
-import Welcome from "./components/Setup/Welcome";
 
 const Performers = lazyComponent(
   () => import("./components/Performers/Performers")
 );
-const FrontPage = lazyComponent(
-  () => import("./components/FrontPage/FrontPage")
+const HomepageLanding = lazyComponent(
+  () => import("./components/FrontPage/HomepageLanding")
 );
 const Scenes = lazyComponent(() => import("./components/Scenes/Scenes"));
 const Settings = lazyComponent(() => import("./components/Settings/Settings"));
@@ -102,9 +104,9 @@ function languageMessageString(language: string) {
   return language.replace(/-/, "");
 }
 
-const AppContainer: React.FC<React.PropsWithChildren<unknown>> = PatchFunction(
+const AppContainer: React.FC<React.PropsWithChildren<{}>> = PatchFunction(
   "App",
-  (props: React.PropsWithChildren<unknown>) => {
+  (props: React.PropsWithChildren<{}>) => {
     return <>{props.children}</>;
   }
 ) as React.FC;
@@ -138,18 +140,55 @@ function translateLanguageLocale(l: string) {
 }
 
 export const App: React.FC = () => {
-  const config = useConfiguration();
-  const [saveUI] = useConfigureUI();
-
-  const { data: systemStatusData } = useSystemStatus();
+  const [dismissedReleaseNotesThrough, setDismissedReleaseNotesThrough] =
+    React.useState<number>();
+  const migrationBootstrap = Boolean(
+    document.querySelector('meta[name="stash-migration-csrf"]')
+  );
+  const migration = GQL.useMigrationStatusQuery({
+    fetchPolicy: "no-cache",
+    skip: !migrationBootstrap,
+  });
+  const shell = GQL.useAppShellConfigurationQuery({
+    fetchPolicy: "no-cache",
+    skip: migrationBootstrap,
+  });
+  const shellResult = shell.data?.appShellConfiguration;
+  const migrationShell = migrationBootstrap;
+  const { data: meData } = GQL.useMeQuery({
+    fetchPolicy: "no-cache",
+    skip: !shellResult || migrationShell,
+  });
+  const fullConfig = GQL.useConfigurationQuery({
+    fetchPolicy: "no-cache",
+    skip: !meData?.me || migrationShell,
+  });
+  const [saveUISetting] = useConfigureUISetting();
+  const config = migrationShell
+    ? {
+        // The migration GraphQL allowlist intentionally excludes normal
+        // configuration roots. Supply a fixed, non-secret client contract so
+        // providers can render /migrate without dereferencing skipped query
+        // data or inventing server state.
+        data: { configuration: migrationBootstrapConfiguration },
+        loading: migration.loading,
+        error: migration.error,
+      }
+    : fullConfig;
+  const shellStatus =
+    migration.data?.migrationStatus.status ?? shellResult?.status;
+  const systemStatusData = useMemo(
+    () => (shellStatus ? { systemStatus: { status: shellStatus } } : undefined),
+    [shellStatus]
+  );
 
   const language =
     config.data?.configuration?.interface?.language ?? defaultLocale;
   const intlLanguage = translateLanguageLocale(language);
 
   // use en-GB as default messages if any messages aren't found in the chosen language
-  const [messages, setMessages] = useState<Record<string, string>>();
-  const [customMessages, setCustomMessages] = useState<NestedMessage>();
+  const [messages, setMessages] = useState<{}>();
+  const [customMessages, setCustomMessages] = useState<{}>();
 
   useEffect(() => {
     (async () => {
@@ -169,42 +208,57 @@ export const App: React.FC = () => {
       const defaultMessageLanguage = languageMessageString(defaultLocale);
       const messageLanguage = languageMessageString(language);
 
-      // register countries for the chosen language
-      await registerCountry(language);
+      try {
+        // register countries for the chosen language
+        await registerCountry(language);
 
-      const defaultMessages = (await locales[defaultMessageLanguage]()).default;
-      const mergedMessages = cloneDeep(Object.assign({}, defaultMessages));
-      const chosenMessages = (await locales[messageLanguage]()).default;
+        const defaultMessages = (await locales[defaultMessageLanguage]())
+          .default;
+        const mergedMessages = cloneDeep(Object.assign({}, defaultMessages));
+        const chosenLocale = locales[messageLanguage];
+        const chosenMessages = chosenLocale
+          ? (await chosenLocale()).default
+          : defaultMessages;
 
-      mergeWith(
-        mergedMessages,
-        chosenMessages,
-        customMessages,
-        (objVal, srcVal) => {
-          if (srcVal === "") {
-            return objVal;
+        mergeWith(
+          mergedMessages,
+          chosenMessages,
+          customMessages,
+          (objVal, srcVal) => {
+            if (srcVal === "") {
+              return objVal;
+            }
           }
-        }
-      );
+        );
 
-      const newMessages = flattenMessages(mergedMessages);
+        const newMessages = flattenMessages(mergedMessages);
 
-      yup.setLocale({
-        mixed: {
-          required: newMessages["validation.required"],
-        },
-      });
+        yup.setLocale({
+          mixed: {
+            required: newMessages["validation.required"],
+          },
+        });
 
-      setMessages(newMessages);
-      moment.locale([language, defaultLocale]);
+        setMessages(newMessages);
+        moment.locale([language, defaultLocale]);
+      } catch (err) {
+        console.error(
+          `Unable to load locale "${language}"; using ${defaultLocale}`,
+          err
+        );
+        const fallbackMessages = (await locales[defaultMessageLanguage]())
+          .default;
+        setMessages(flattenMessages(cloneDeep(fallbackMessages)));
+        moment.locale(defaultLocale);
+      }
     };
 
-    setLocale();
+    void setLocale();
   }, [customMessages, language]);
 
   const location = useLocation();
   const history = useHistory();
-  const setupMatch = useRouteMatch(["/setup", "/migrate", "/welcome"]);
+  const setupMatch = useRouteMatch(["/setup", "/migrate"]);
 
   // dispatch event when location changes
   useEffect(() => {
@@ -234,7 +288,7 @@ export const App: React.FC = () => {
       // redirect to migrate page
       history.replace("/migrate");
     }
-  }, [systemStatusData, history, location.pathname]);
+  }, [systemStatusData, setupMatch, history, location]);
 
   function maybeRenderNavbar() {
     // don't render navbar for setup views
@@ -252,7 +306,7 @@ export const App: React.FC = () => {
       <ErrorBoundary>
         <Suspense fallback={<LoadingIndicator />}>
           <Switch>
-            <Route exact path="/" component={FrontPage} />
+            <Route exact path="/" component={HomepageLanding} />
             <Route path="/scenes" component={Scenes} />
             <Route path="/images" component={Images} />
             <Route path="/galleries" component={Galleries} />
@@ -260,6 +314,12 @@ export const App: React.FC = () => {
             <Route path="/tags" component={Tags} />
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
+            {isTrustedRouteEnabled("/shows", meData?.me.capabilities) && (
+              <Route exact path="/shows" component={ShowsPage} />
+            )}
+            {isTrustedRouteEnabled("/cam-models", meData?.me.capabilities) && (
+              <Route path="/cam-models/:id?" component={CamModelsPage} />
+            )}
             <Route path="/stats" component={Stats} />
             <Route path="/settings" component={Settings} />
             <Route
@@ -271,7 +331,6 @@ export const App: React.FC = () => {
               component={SceneDuplicateChecker}
             />
             <Route path="/setup" component={Setup} />
-            <Route path="/welcome" component={Welcome} />
             <Route path="/migrate" component={Migrate} />
             <PluginRoutes />
             <Route component={PageNotFound} />
@@ -282,13 +341,23 @@ export const App: React.FC = () => {
   }
 
   function maybeRenderReleaseNotes() {
-    if (setupMatch || !systemStatusData || config.loading || config.error) {
+    if (
+      setupMatch ||
+      !systemStatusData ||
+      config.loading ||
+      config.error ||
+      meData?.me.role !== "ADMIN"
+    ) {
       return;
     }
 
-    const lastNoteSeen = config.data?.configuration.ui.lastNoteSeen;
+    const lastNoteSeen = config.data?.configuration?.ui?.lastNoteSeen;
     const notes = releaseNotes.filter((n) => {
-      return !lastNoteSeen || n.date > lastNoteSeen;
+      const seenThrough = Math.max(
+        Number(lastNoteSeen) || 0,
+        dismissedReleaseNotesThrough || 0
+      );
+      return n.date > seenThrough;
     });
 
     if (notes.length === 0) return;
@@ -296,13 +365,15 @@ export const App: React.FC = () => {
     return (
       <ReleaseNotesDialog
         notes={notes}
-        onClose={() => {
-          saveUI({
+        onClose={async () => {
+          const seenThrough = notes[0].date;
+          // Close immediately instead of waiting for the configuration cache
+          // to be rewritten by the persistence mutation.
+          setDismissedReleaseNotesThrough(seenThrough);
+          await saveUISetting({
             variables: {
-              input: {
-                ...config.data?.configuration.ui,
-                lastNoteSeen: notes[0].date,
-              },
+              key: "lastNoteSeen",
+              value: seenThrough,
             },
           });
         }}
@@ -310,11 +381,15 @@ export const App: React.FC = () => {
     );
   }
 
-  const title = config.data?.configuration.ui.title || "Stash";
+  const title = config.data?.configuration?.ui?.title || "Stash";
   const titleProps = makeTitleProps(title);
 
   if (!messages) {
-    return null;
+    return (
+      <div className="d-flex vh-100 align-items-center justify-content-center">
+        Loading Stash…
+      </div>
+    );
   }
 
   function renderSimple(content: React.ReactNode) {
@@ -329,7 +404,10 @@ export const App: React.FC = () => {
     );
   }
 
-  if (config.loading) {
+  if (
+    config.loading ||
+    (!migrationShell && (!meData?.me || !config.data?.configuration))
+  ) {
     return renderSimple(<LoadingIndicator />);
   }
 
@@ -356,29 +434,34 @@ export const App: React.FC = () => {
       >
         <ToastProvider>
           <PluginsLoader
+            enabled={meData?.me.role === "ADMIN"}
             disableCustomizations={
               config.data?.configuration?.interface?.disableCustomizations ??
               false
             }
           >
-            <AppContainer>
-              <ConfigurationProvider configuration={config.data!.configuration}>
-                {maybeRenderReleaseNotes()}
-                <ConnectionMonitor />
-                <TroubleshootingModeOverlay />
-                <Suspense fallback={<LoadingIndicator />}>
-                  <LightboxProvider>
-                    <ManualProvider>
-                      <InteractiveProvider>
-                        <Helmet {...titleProps} />
-                        {maybeRenderNavbar()}
-                        <MainContainer>{renderContent()}</MainContainer>
-                      </InteractiveProvider>
-                    </ManualProvider>
-                  </LightboxProvider>
-                </Suspense>
-              </ConfigurationProvider>
-            </AppContainer>
+            <PersonalThemeLoader>
+              <AppContainer>
+                <ConfigurationProvider
+                  configuration={config.data!.configuration}
+                >
+                  {maybeRenderReleaseNotes()}
+                  <ConnectionMonitor />
+                  {!setupMatch && <TroubleshootingModeOverlay />}
+                  <Suspense fallback={<LoadingIndicator />}>
+                    <LightboxProvider>
+                      <ManualProvider>
+                        <InteractiveProvider>
+                          <Helmet {...titleProps} />
+                          {maybeRenderNavbar()}
+                          <MainContainer>{renderContent()}</MainContainer>
+                        </InteractiveProvider>
+                      </ManualProvider>
+                    </LightboxProvider>
+                  </Suspense>
+                </ConfigurationProvider>
+              </AppContainer>
+            </PersonalThemeLoader>
           </PluginsLoader>
         </ToastProvider>
       </IntlProvider>

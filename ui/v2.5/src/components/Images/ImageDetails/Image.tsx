@@ -38,6 +38,7 @@ import { goBackOrReplace } from "src/utils/history";
 import { FormattedDate } from "src/components/Shared/Date";
 import { GenerateDialog } from "src/components/Dialogs/GenerateDialog";
 import { StudioLogo } from "src/components/Shared/StudioLogo";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 
 interface IProps {
   image: GQL.ImageDataFragment;
@@ -51,6 +52,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   const history = useHistory();
   const Toast = useToast();
   const intl = useIntl();
+  const { isAdmin, canEditMetadata } = useRoleCapabilities();
   const { configuration } = useConfigurationContext();
   const { showStudioText } = configuration?.ui ?? {};
 
@@ -80,7 +82,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   async function onRescan() {
-    if (!image?.visual_files.length) {
+    if (!image || !image.visual_files.length) {
       return;
     }
 
@@ -167,7 +169,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   function maybeRenderDeleteDialog() {
-    if (isDeleteAlertOpen && image) {
+    if (isAdmin && isDeleteAlertOpen && image) {
       return (
         <DeleteImagesDialog selected={[image]} onClose={onDeleteDialogClosed} />
       );
@@ -175,7 +177,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   function maybeRenderSceneGenerateDialog() {
-    if (isGenerateDialogOpen) {
+    if (isAdmin && isGenerateDialogOpen) {
       return (
         <GenerateDialog
           selectedIds={[image.id]}
@@ -189,6 +191,7 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   }
 
   function renderOperations() {
+    if (!isAdmin) return null;
     return (
       <Dropdown>
         <Dropdown.Toggle
@@ -252,11 +255,13 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
                 <Counter count={image.visual_files.length} hideZero hideOne />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="image-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canEditMetadata && (
+              <Nav.Item>
+                <Nav.Link eventKey="image-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
         </div>
 
@@ -270,14 +275,16 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
           >
             <ImageFileInfoPanel image={image} />
           </Tab.Pane>
-          <Tab.Pane eventKey="image-edit-panel" mountOnEnter>
-            <ImageEditPanel
-              isVisible={activeTabKey === "image-edit-panel"}
-              image={image}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canEditMetadata && (
+            <Tab.Pane eventKey="image-edit-panel" mountOnEnter>
+              <ImageEditPanel
+                isVisible={activeTabKey === "image-edit-panel"}
+                image={image}
+                onSubmit={onSave}
+                onDelete={isAdmin ? () => setIsDeleteAlertOpen(true) : undefined}
+              />
+            </Tab.Pane>
+          )}
         </Tab.Content>
       </Tab.Container>
     );
@@ -286,7 +293,9 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
   // set up hotkeys
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("image-details-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("image-edit-panel"));
+    Mousetrap.bind("e", () => {
+      if (canEditMetadata) setActiveTabKey("image-edit-panel");
+    });
     Mousetrap.bind("f", () => setActiveTabKey("image-file-info-panel"));
     Mousetrap.bind("o", () => {
       onIncrementClick();
@@ -379,13 +388,13 @@ const ImagePage: React.FC<IProps> = ({ image }) => {
       <div className="image-container">
         {image.visual_files.length > 0 && (
           <ImageView
-            loop={image.visual_files[0].__typename === "VideoFile"}
-            autoPlay={image.visual_files[0].__typename === "VideoFile"}
-            playsInline={image.visual_files[0].__typename === "VideoFile"}
-            controls={image.visual_files[0].__typename === "VideoFile"}
+            loop={image.visual_files[0].__typename == "VideoFile"}
+            autoPlay={image.visual_files[0].__typename == "VideoFile"}
+            playsInline={image.visual_files[0].__typename == "VideoFile"}
+            controls={image.visual_files[0].__typename == "VideoFile"}
             className="m-sm-auto no-gutter image-image"
             style={
-              image.visual_files[0].__typename === "VideoFile"
+              image.visual_files[0].__typename == "VideoFile"
                 ? { width: "100%", height: "100%" }
                 : {}
             }

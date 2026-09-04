@@ -1,4 +1,4 @@
-/* XXbiome-ignore @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/naming-convention */
 
 declare module "mousetrap-pause" {
   import { MousetrapStatic } from "mousetrap";

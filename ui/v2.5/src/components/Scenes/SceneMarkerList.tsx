@@ -308,7 +308,7 @@ export const FilteredSceneMarkerList = PatchComponent(
         Mousetrap.unbind("e");
         Mousetrap.unbind("d d");
       };
-    }, [hasSelection, onEdit, onDelete]);
+    }, [onSelectAll, onSelectNone, hasSelection, onEdit, onDelete]);
 
     useZoomKeybinds({
       zoomIndex: filter.zoomIndex,

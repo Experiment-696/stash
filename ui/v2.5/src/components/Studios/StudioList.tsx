@@ -16,7 +16,6 @@ import { ExportDialog } from "../Shared/ExportDialog";
 import { DeleteEntityDialog } from "../Shared/DeleteEntityDialog";
 import { StudioTagger } from "../Tagger/studios/StudioTagger";
 import { StudioCardGrid } from "./StudioCardGrid";
-import { StudioListTable } from "./StudioListTable";
 import { View } from "../List/views";
 import { EditStudiosDialog } from "./EditStudiosDialog";
 import {
@@ -46,6 +45,7 @@ import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { FavoriteStudioCriterionOption } from "src/models/list-filter/criteria/favorite";
 import { Button } from "react-bootstrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import cx from "classnames";
 
 const StudioList: React.FC<{
@@ -73,13 +73,7 @@ const StudioList: React.FC<{
       );
     }
     if (filter.displayMode === DisplayMode.List) {
-      return (
-        <StudioListTable
-          studios={studios}
-          selectedIds={selectedIds}
-          onSelectChange={onSelectChange}
-        />
-      );
+      return <h1>TODO</h1>;
     }
     if (filter.displayMode === DisplayMode.Wall) {
       return <h1>TODO</h1>;
@@ -206,6 +200,7 @@ export const FilteredStudioList = PatchComponent(
   "FilteredStudioList",
   (props: IStudioList) => {
     const intl = useIntl();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const searchFocus = useFocus();
 
@@ -266,13 +261,13 @@ export const FilteredStudioList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -356,11 +351,12 @@ export const FilteredStudioList = PatchComponent(
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -372,8 +368,8 @@ export const FilteredStudioList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="studio-list-operations-dropdown"
       />
     );
@@ -409,8 +405,8 @@ export const FilteredStudioList = PatchComponent(
                 listSelect={listSelect}
                 setFilter={setFilter}
                 showEditFilter={showEditFilter}
-                onDelete={onDelete}
-                onEdit={onEdit}
+                onDelete={isAdmin ? onDelete : undefined}
+                onEdit={canEditMetadata ? onEdit : undefined}
                 operationComponent={operations}
                 view={view}
                 zoomable

@@ -1,4 +1,4 @@
-# UI plugin API
+# UI Plugin API
 
 The `PluginApi` object is a global object in the `window` object.
 
@@ -83,11 +83,9 @@ In general, `PluginApi.hooks.useLoadComponents` hook should be used instead.
 Returns a `Promise<void>` that resolves when all of the components have been loaded.
 
 #### `PluginApi.utils.InteractiveUtils`
-
 This namespace provides access to `interactiveClientProvider` and `getPlayer`
  - `getPlayer` returns the current `videojs` player object
  - `interactiveClientProvider` takes `IInteractiveClientProvider` which allows a developer to hook into the lifecycle of funscripts.
-
 ```ts
   export interface IDeviceSettings {
   connectionKey: string;
@@ -126,7 +124,6 @@ export interface IInteractiveClient {
 
 ```
 ##### Example
-
 For instance say I wanted to add extra logging when `IInteractiveClient.connect()` is called.
 In my plugin you would install your own client provider as seen below
 
@@ -149,6 +146,7 @@ InteractiveUtils.interactiveClientProvider = (
 };
 
 ```
+
 
 ### `hooks`
 
@@ -257,7 +255,6 @@ Returns `void`.
 - `GroupCardGrid`
 - `GroupIDSelect`
 - `GroupList`
-- `GroupPage`
 - `GroupRecommendationRow`
 - `GroupSelect`
 - `GroupSelect.sort`
@@ -344,7 +341,6 @@ Returns `void`.
 - `StudioDetailsPanel`
 - `StudioIDSelect`
 - `StudioList`
-- `StudioPage`
 - `StudioRecommendationRow`
 - `StudioSelect`
 - `StudioSelect.sort`
@@ -360,7 +356,6 @@ Returns `void`.
 - `TagIDSelect`
 - `TagLink`
 - `TagList`
-- `TagPage`
 - `TagRecommendationRow`
 - `TagSelect`
 - `TagSelect.sort`

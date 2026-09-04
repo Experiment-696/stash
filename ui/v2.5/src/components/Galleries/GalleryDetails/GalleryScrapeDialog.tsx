@@ -138,7 +138,7 @@ export const GalleryScrapeDialog: React.FC<IGalleryScrapeDialogProps> = ({
     newTags.length === 0
   ) {
     onClose();
-    return null;
+    return <></>;
   }
 
   function makeNewScrapedItem(): GQL.ScrapedGalleryDataFragment {

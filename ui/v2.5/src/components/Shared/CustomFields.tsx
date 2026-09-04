@@ -3,7 +3,7 @@ import { CollapseButton } from "./CollapseButton";
 import { DetailItem } from "./DetailItem";
 import { Button, Col, Form, FormGroup, InputGroup, Row } from "react-bootstrap";
 import { FormattedMessage, useIntl } from "react-intl";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 import { Icon } from "./Icon";
 import { faMinus, faPlus } from "@fortawesome/free-solid-svg-icons";
 import cx from "classnames";
@@ -49,7 +49,7 @@ const CustomField: React.FC<{ field: string; value: unknown }> = ({
       id={id}
       label={field}
       labelTitle={field}
-      value={<TruncatedText lineCount={5} text={valueStr} />}
+      value={<TruncatedText lineCount={5} text={<>{valueStr}</>} />}
       fullWidth={true}
       showEmpty
     />
@@ -128,17 +128,21 @@ const CustomFieldInput: React.FC<{
         >
           <Col className="custom-fields-field">
             {isNew ? (
-              <Form.Control
-                ref={fieldRef}
-                className="input-control"
-                type="text"
-                value={currentField ?? ""}
-                placeholder={intl.formatMessage({
-                  id: "custom_fields.field",
-                })}
-                onChange={(event) => setCurrentField(event.currentTarget.value)}
-                onBlur={onBlur}
-              />
+              <>
+                <Form.Control
+                  ref={fieldRef}
+                  className="input-control"
+                  type="text"
+                  value={currentField ?? ""}
+                  placeholder={intl.formatMessage({
+                    id: "custom_fields.field",
+                  })}
+                  onChange={(event) =>
+                    setCurrentField(event.currentTarget.value)
+                  }
+                  onBlur={onBlur}
+                />
+              </>
             ) : (
               <Form.Label title={currentField}>{currentField}</Form.Label>
             )}
@@ -186,7 +190,7 @@ interface ICustomFieldsInput {
   setError: (error?: string) => void;
 }
 
-export function formatCustomFieldInput(isNew: boolean, input: object) {
+export function formatCustomFieldInput(isNew: boolean, input: {}) {
   if (isNew) {
     return input;
   } else {
@@ -219,7 +223,7 @@ export const CustomFieldsInput: React.FC<ICustomFieldsInput> = PatchComponent(
 
     function onSetNewField(v: ICustomField) {
       // validate the field name
-      let newError: string | undefined;
+      let newError = undefined;
       if (v.field.length > maxFieldNameLength) {
         newError = intl.formatMessage({
           id: "errors.custom_fields.field_name_length",
@@ -273,7 +277,7 @@ export const CustomFieldsInput: React.FC<ICustomFieldsInput> = PatchComponent(
       newField: string,
       value: unknown
     ) {
-      const newValues = cloneDeep(values);
+      let newValues = cloneDeep(values);
       delete newValues[currentField];
       if (newField !== "") {
         newValues[newField] = value;

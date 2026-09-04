@@ -62,7 +62,6 @@ type StudioCreateInput struct {
 	URL      *string  `json:"url"` // deprecated
 	Urls     []string `json:"urls"`
 	ParentID *string  `json:"parent_id"`
-	ChildIds []string `json:"child_ids"`
 	// This should be a URL or a base64 encoded data URL
 	Image         *string        `json:"image"`
 	StashIds      []StashIDInput `json:"stash_ids"`
@@ -83,7 +82,6 @@ type StudioUpdateInput struct {
 	URL      *string  `json:"url"` // deprecated
 	Urls     []string `json:"urls"`
 	ParentID *string  `json:"parent_id"`
-	ChildIds []string `json:"child_ids"`
 	// This should be a URL or a base64 encoded data URL
 	Image         *string        `json:"image"`
 	StashIds      []StashIDInput `json:"stash_ids"`

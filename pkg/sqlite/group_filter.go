@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/utils"
@@ -43,13 +44,13 @@ func (qb *groupFilterHandler) handle(ctx context.Context, f *filterBuilder) {
 		return
 	}
 
-	f.handleCriterion(ctx, qb.criterionHandler())
-
 	sf := groupFilter.SubFilter()
 	if sf != nil {
 		sub := &groupFilterHandler{sf}
 		handleSubFilter(ctx, sub, f, groupFilter.OperatorFilter)
 	}
+
+	f.handleCriterion(ctx, qb.criterionHandler())
 }
 
 var groupHierarchyHandler = hierarchicalRelationshipHandler{
@@ -120,7 +121,7 @@ func (qb *groupFilterHandler) missingCriterionHandler(isMissing *string) criteri
 				f.addLeftJoin("groups_scenes", "", "groups_scenes.group_id = groups.id")
 				f.addWhere("groups_scenes.scene_id IS NULL")
 			case "url":
-				groupsURLsTableMgr.leftJoin(f, "", "groups.id")
+				groupsURLsTableMgr.join(f, "", "groups.id")
 				f.addWhere("group_urls.url IS NULL")
 			case "studio":
 				f.addWhere("groups.studio_id IS NULL")
@@ -129,7 +130,7 @@ func (qb *groupFilterHandler) missingCriterionHandler(isMissing *string) criteri
 				f.addLeftJoin("performers_scenes", "ps_perf", "gs_perf.scene_id = ps_perf.scene_id")
 				f.addWhere("ps_perf.performer_id IS NULL")
 			case "tags":
-				groupRepository.tags.leftJoin(f, "tags_join", "groups.id")
+				groupRepository.tags.join(f, "tags_join", "groups.id")
 				f.addWhere("tags_join.group_id IS NULL")
 			default:
 				if err := validateIsMissing(*isMissing, []string{
@@ -150,8 +151,8 @@ func (qb *groupFilterHandler) urlsCriterionHandler(url *models.StringCriterionIn
 		primaryFK:    groupIDColumn,
 		joinTable:    groupURLsTable,
 		stringColumn: groupURLColumn,
-		addJoinTable: func(f *filterBuilder, joinType joinType) {
-			groupsURLsTableMgr.join(f, joinType, "", "groups.id")
+		addJoinTable: func(f *filterBuilder) {
+			groupsURLsTableMgr.join(f, "", "groups.id")
 		},
 	}
 
@@ -260,13 +261,22 @@ var selectGroupOCountSQL = utils.StrFormat(
 	},
 )
 
+func selectGroupOCountForContext(ctx context.Context) string {
+	userID, ok := personalActivityUserID(ctx)
+	if !ok {
+		return selectGroupOCountSQL
+	}
+	return "SELECT COUNT(h.id) FROM groups_scenes s LEFT JOIN user_scene_history h ON h.scene_id = s.scene_id " +
+		"AND h.user_id = " + strconv.FormatInt(userID, 10) + " AND h.kind = 'O' WHERE s.group_id = groups.id"
+}
+
 func (qb *groupFilterHandler) groupOCounterCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
 	return func(ctx context.Context, f *filterBuilder) {
 		if count == nil {
 			return
 		}
 
-		lhs := "(" + selectGroupOCountSQL + ")"
+		lhs := "(" + selectGroupOCountForContext(ctx) + ")"
 		clause, args := getIntCriterionWhereClause(lhs, *count)
 
 		f.addWhere(clause, args...)

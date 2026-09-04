@@ -61,7 +61,10 @@ func (r *mutationResolver) RunPluginTask(
 	}
 
 	m := manager.GetInstance()
-	jobID := m.RunPluginTask(ctx, pluginID, taskName, description, argsMap)
+	jobID, err := m.RunPluginTask(ctx, pluginID, taskName, description, argsMap)
+	if err != nil {
+		return "", err
+	}
 	return strconv.Itoa(jobID), nil
 }
 

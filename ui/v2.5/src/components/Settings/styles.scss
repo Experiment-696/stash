@@ -459,3 +459,28 @@
     position: static;
   }
 }
+.vlm-settings {
+  max-width: 1100px;
+  padding: 1rem;
+
+  .vlm-settings-header,
+  .vlm-settings-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .vlm-settings-actions {
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+
+  .vlm-range-field {
+    margin-bottom: 1.5rem;
+  }
+
+  textarea {
+    font-family: monospace;
+  }
+}

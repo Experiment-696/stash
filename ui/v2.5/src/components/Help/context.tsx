@@ -27,7 +27,7 @@ export const ManualProvider: React.FC = ({ children }) => {
         openManual,
       }}
     >
-      <Suspense fallback={null}>
+      <Suspense fallback={<></>}>
         {showManual && (
           <Manual
             show={showManual}

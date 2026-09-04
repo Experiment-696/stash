@@ -643,7 +643,7 @@ func (qb *PerformerStore) makeQuery(ctx context.Context, performerFilter *models
 	}
 
 	var err error
-	query.sortAndPagination, err = qb.getPerformerSort(findFilter)
+	query.sortAndPagination, err = qb.getPerformerSort(ctx, findFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -680,9 +680,9 @@ func (qb *PerformerStore) QueryCount(ctx context.Context, performerFilter *model
 	return query.executeCount(ctx)
 }
 
-func (qb *PerformerStore) sortByOCounter(direction string) string {
+func (qb *PerformerStore) sortByOCounter(ctx context.Context, direction string) string {
 	// need to sum the o_counter from scenes and images
-	return " ORDER BY (" + selectPerformerOCountSQL + ") " + direction
+	return " ORDER BY (" + selectPerformerOCountForContext(ctx) + ") " + direction
 }
 
 func (qb *PerformerStore) sortByPlayCount(direction string) string {
@@ -831,7 +831,7 @@ var performerSortOptions = sortOptions{
 	"weight",
 }
 
-func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (string, error) {
+func (qb *PerformerStore) getPerformerSort(ctx context.Context, findFilter *models.FindFilterType) (string, error) {
 	var sort string
 	var direction string
 	if findFilter == nil {
@@ -864,7 +864,7 @@ func (qb *PerformerStore) getPerformerSort(findFilter *models.FindFilterType) (s
 	case "play_count":
 		sortQuery += qb.sortByPlayCount(direction)
 	case "o_counter":
-		sortQuery += qb.sortByOCounter(direction)
+		sortQuery += qb.sortByOCounter(ctx, direction)
 	case "last_played_at":
 		sortQuery += qb.sortByLastPlayedAt(direction)
 	case "last_o_at":

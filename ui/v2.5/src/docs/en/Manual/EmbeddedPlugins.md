@@ -1,27 +1,26 @@
-# Embedded plugin tasks
+# Embedded Plugin Tasks
 
 Embedded plugin tasks are executed within the stash process using a scripting system.
 
 ## Supported script languages
 
-Stash currently supports JavaScript embedded plugin tasks using [goja](https://github.com/dop251/goja).
+Stash currently supports Javascript embedded plugin tasks using [goja](https://github.com/dop251/goja).
 
-## JavaScript plugins
+## Javascript plugins
 
 ### Plugin input
 
-The input is provided to JavaScript plugin tasks using the `input` global variable, and is an object based on the structure provided in the `Plugin input` section of the [Plugins](/help/Plugins.md) page. 
+The input is provided to Javascript plugin tasks using the `input` global variable, and is an object based on the structure provided in the `Plugin input` section of the [Plugins](/help/Plugins.md) page. 
 
 > **⚠️ Note:** `server_connection` field should not be necessary in most embedded plugins.
 
 ### Plugin output
 
-The output of a JavaScript plugin task is derived from the evaluated value of the script. The output should conform to the structure provided in the `Plugin output` section of the [Plugins](/help/Plugins.md) page.
+The output of a Javascript plugin task is derived from the evaluated value of the script. The output should conform to the structure provided in the `Plugin output` section of the [Plugins](/help/Plugins.md) page.
 
 There are a number of ways to return the plugin output:
 
 #### Example #1
-
 ```
 (function() {
     return {
@@ -31,7 +30,6 @@ There are a number of ways to return the plugin output:
 ```
 
 #### Example #2
-
 ```
 function main() {
     return {
@@ -43,7 +41,6 @@ main();
 ```
 
 #### Example #3
-
 ```
 var output = {
     Output: "ok"
@@ -65,14 +62,13 @@ For embedded plugins, the `exec` field is a list with the first element being th
 ### interface
 
 For embedded plugins, the `interface` field must be set to one of the following values:
+* `js`
 
-- `js`
-
-## JavaScript API
+## Javascript API
 
 ### Logging
 
-Stash provides the following API for logging in JavaScript plugins:
+Stash provides the following API for logging in Javascript plugins:
 
 | Method | Description |
 |--------|-------------|

@@ -1,4 +1,10 @@
-import React, { MutableRefObject, useMemo, useRef, useState } from "react";
+import React, {
+  MutableRefObject,
+  PropsWithChildren,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Card, Form } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import cx from "classnames";
@@ -41,8 +47,8 @@ export const calculateCardWidth = (
 ) => {
   const containerPadding = 30;
   const cardMargin = 10;
-  const maxUsableWidth = containerWidth - containerPadding;
-  const maxElementsOnRow = Math.ceil(maxUsableWidth / preferredWidth);
+  let maxUsableWidth = containerWidth - containerPadding;
+  let maxElementsOnRow = Math.ceil(maxUsableWidth / preferredWidth);
   return maxUsableWidth / maxElementsOnRow - cardMargin;
 };
 
@@ -62,7 +68,7 @@ export const useContainerDimensions = <T extends HTMLElement = HTMLDivElement>(
 
   const debouncedSetDimension = useDebounce((entry: ResizeObserverEntry) => {
     const { inlineSize: width, blockSize: height } = entry.contentBoxSize[0];
-    const difference = Math.abs(dimension.width - width);
+    let difference = Math.abs(dimension.width - width);
     // Only adjust when width changed by a significant margin. This addresses the cornercase that sees
     // the dimensions toggle back and forward when the window is adjusted perfectly such that overflow
     // is trigger then immediable disabled because of a resize event then continues this loop endlessly.
@@ -99,9 +105,9 @@ export function useCardWidth(
       return zoomWidths[zoomIndex];
     }
 
-    const zoomValue = zoomIndex;
+    let zoomValue = zoomIndex;
     const preferredCardWidth = zoomWidths[zoomValue];
-    const fittedCardWidth = calculateCardWidth(
+    let fittedCardWidth = calculateCardWidth(
       containerWidth,
       preferredCardWidth!
     );
@@ -148,7 +154,7 @@ const DragHandle: React.FC<{
   );
 };
 
-const Controls: React.FC = ({ children }) => {
+const Controls: React.FC<PropsWithChildren<{}>> = ({ children }) => {
   return <div className="card-controls">{children}</div>;
 };
 

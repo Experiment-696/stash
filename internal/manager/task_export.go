@@ -3,7 +3,6 @@ package manager
 import (
 	"archive/zip"
 	"context"
-	gojson "encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/gallery"
@@ -30,12 +30,13 @@ import (
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
 	"github.com/stashapp/stash/pkg/studio"
 	"github.com/stashapp/stash/pkg/tag"
-	"github.com/stashapp/stash/pkg/utils"
 )
 
 type ExportTask struct {
 	repository models.Repository
 	full       bool
+	principal  authz.Principal
+	downloads  *DownloadStore
 
 	baseDir string
 	json    jsonUtils
@@ -95,7 +96,7 @@ func newExportSpec(input *ExportObjectTypeInput) *exportSpec {
 	return ret
 }
 
-func CreateExportTask(a models.HashAlgorithm, input ExportObjectsInput) *ExportTask {
+func CreateExportTask(a models.HashAlgorithm, input ExportObjectsInput, principal authz.Principal) *ExportTask {
 	includeDeps := false
 	if input.IncludeDependencies != nil {
 		includeDeps = *input.IncludeDependencies
@@ -107,8 +108,11 @@ func CreateExportTask(a models.HashAlgorithm, input ExportObjectsInput) *ExportT
 		groupSpec = input.Movies
 	}
 
+	principal.TokenScopes = cloneCapabilities(principal.TokenScopes)
 	return &ExportTask{
 		repository:          GetInstance().Repository,
+		principal:           principal,
+		downloads:           GetInstance().DownloadStore,
 		fileNamingAlgorithm: a,
 		scenes:              newExportSpec(input.Scenes),
 		images:              newExportSpec(input.Images),
@@ -119,6 +123,17 @@ func CreateExportTask(a models.HashAlgorithm, input ExportObjectsInput) *ExportT
 		galleries:           newExportSpec(input.Galleries),
 		includeDependencies: includeDeps,
 	}
+}
+
+func cloneCapabilities(scopes map[authz.Capability]struct{}) map[authz.Capability]struct{} {
+	if scopes == nil {
+		return nil
+	}
+	ret := make(map[authz.Capability]struct{}, len(scopes))
+	for capability := range scopes {
+		ret[capability] = struct{}{}
+	}
+	return ret
 }
 
 func (t *ExportTask) Start(ctx context.Context, wg *sync.WaitGroup) {
@@ -213,12 +228,16 @@ func (t *ExportTask) generateDownload() error {
 		return err
 	}
 
-	t.DownloadHash, err = instance.DownloadStore.RegisterFile(z.Name(), "", false)
+	t.DownloadHash, err = t.registerDownload(z.Name())
 	if err != nil {
 		return fmt.Errorf("error registering file for download: %w", err)
 	}
 	logger.Debugf("Generated zip file %s with hash %s", z.Name(), t.DownloadHash)
 	return nil
+}
+
+func (t *ExportTask) registerDownload(path string) (string, error) {
+	return t.downloads.RegisterFile(path, "", false, t.principal, authz.DataAdmin)
 }
 
 func (t *ExportTask) zipFiles(w io.Writer) error {
@@ -425,25 +444,9 @@ func fileToJSON(f models.File) jsonschema.DirEntry {
 	}
 
 	for _, fp := range bf.Fingerprints {
-		fingerprintValue := fp.Fingerprint
-		// Convert phash to hex string
-		if fp.Type == models.FingerprintTypePhash {
-			if v, ok := fp.Fingerprint.(int64); ok {
-				fingerprintValue = utils.PhashToString(v)
-			}
-		}
-
-		// encode manually into json.RawMessage
-		fvEncoded, err := gojson.Marshal(fingerprintValue)
-		if err != nil {
-			// ignore - should not happen
-			logger.Warnf("[files] <%s> error encoding fingerprint %q value: %v", base.Filename(), fp.Type, err)
-			continue
-		}
-
 		base.Fingerprints = append(base.Fingerprints, jsonschema.Fingerprint{
 			Type:        fp.Type,
-			Fingerprint: gojson.RawMessage(fvEncoded),
+			Fingerprint: fp.Fingerprint,
 		})
 	}
 

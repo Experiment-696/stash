@@ -1,7 +1,6 @@
 import { Button, Dropdown, Modal, SplitButton } from "react-bootstrap";
 import React, { useState } from "react";
 import { FormattedMessage, useIntl } from "react-intl";
-import { useAutoTagTrigger } from "src/hooks/useAutoTagTrigger";
 import { ImageInput } from "./ImageInput";
 import { AutoTagConfirmDialog } from "./AutoTagConfirmDialog";
 import cx from "classnames";
@@ -14,7 +13,7 @@ interface IProps {
   onSave: () => void;
   onSaveAndNew?: () => void;
   saveDisabled?: boolean;
-  onDelete: () => void;
+  onDelete?: () => void;
   onAutoTag?: () => void;
   autoTagDisabled?: boolean;
   onImageChange: (event: React.FormEvent<HTMLInputElement>) => void;
@@ -24,7 +23,7 @@ interface IProps {
   onClearImage?: () => void;
   onClearBackImage?: () => void;
   acceptSVG?: boolean;
-  customButtons?: JSX.Element;
+  customButtons?: React.ReactNode;
   classNames?: string;
   children?: JSX.Element | JSX.Element[];
 }
@@ -33,11 +32,6 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   const intl = useIntl();
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
   const [isAutoTagAlertOpen, setIsAutoTagAlertOpen] = useState<boolean>(false);
-
-  const onAutoTagClick = useAutoTagTrigger(
-    () => props.onAutoTag?.(),
-    () => setIsAutoTagAlertOpen(true)
-  );
 
   function renderEditButton() {
     if (props.isNew) return;
@@ -87,7 +81,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteButton() {
-    if (props.isNew || props.isEditing) return;
+    if (props.isNew || props.isEditing || !props.onDelete) return;
     return (
       <Button
         variant="danger"
@@ -122,7 +116,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
           <Button
             variant="secondary"
             disabled={props.autoTagDisabled}
-            onClick={onAutoTagClick}
+            onClick={() => setIsAutoTagAlertOpen(true)}
           >
             <FormattedMessage id="actions.auto_tag" />…
           </Button>
@@ -142,6 +136,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteAlert() {
+    if (!props.onDelete) return;
     return (
       <Modal show={isDeleteAlertOpen}>
         <Modal.Body>
@@ -151,7 +146,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
           />
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="danger" onClick={props.onDelete}>
+          <Button variant="danger" onClick={() => props.onDelete?.()}>
             <FormattedMessage id="actions.delete" />
           </Button>
           <Button

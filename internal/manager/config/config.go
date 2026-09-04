@@ -1,9 +1,7 @@
 package config
 
 import (
-	"errors"
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,7 +10,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	"sync"
 	// "github.com/sasha-s/go-deadlock" // if you have deadlock issues
@@ -45,11 +42,6 @@ const (
 	Username            = "username"
 	Password            = "password"
 	MaxSessionAge       = "max_session_age"
-
-	SignedURLExpiry        = "signed_url_expiry"
-	signedURLExpiryDefault = 60 * 60 * 4 // 4 hours in seconds
-
-	PublicWhitelist = "public_whitelist"
 
 	// SFWContentMode mode config key
 	SFWContentMode = "sfw_content_mode"
@@ -127,12 +119,6 @@ const (
 	PreviewExcludeEnd        = "preview_exclude_end"
 	previewExcludeEndDefault = "0"
 
-	MaxMarkerPreviewDuration        = "max_marker_preview_duration"
-	maxMarkerPreviewDurationDefault = 0
-
-	DefaultMarkerPreviewDuration        = "default_marker_preview_duration"
-	defaultMarkerPreviewDurationDefault = 20
-
 	WriteImageThumbnails        = "write_image_thumbnails"
 	writeImageThumbnailsDefault = true
 
@@ -154,12 +140,6 @@ const (
 	NoProxy        = "no_proxy"
 	noProxyDefault = "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12"
 
-	// proxy patterns for which X-Forwarded-For will be trusted
-	// may be IP addresses or CIDR notation for subnets
-	// eg: 192.168.1.0/24 will match any IP address within 192.168.1.0 subnet.
-	// Loaded at startup - requires restart to update
-	TrustedProxies = "trusted_proxies"
-
 	// key used to sign JWT tokens
 	JWTSignKey = "jwt_secret_key"
 
@@ -174,7 +154,9 @@ const (
 	ScraperExcludeTagPatterns = "scraper_exclude_tag_patterns"
 
 	// stash-box options
-	StashBoxes = "stash_boxes"
+	StashBoxes               = "stash_boxes"
+	CamGirlFinder            = "cam_girl_finder"
+	CompletedRecordingImport = "completed_recording_import"
 
 	PythonPath = "python_path"
 
@@ -268,6 +250,12 @@ const (
 	ThemeColor        = "theme_color"
 	DefaultThemeColor = "#202b33"
 
+	// Security
+	dangerousAllowPublicWithoutAuth                   = "dangerous_allow_public_without_auth"
+	dangerousAllowPublicWithoutAuthDefault            = "false"
+	SecurityTripwireAccessedFromPublicInternet        = "security_tripwire_accessed_from_public_internet"
+	securityTripwireAccessedFromPublicInternetDefault = ""
+
 	sslCertPath = "ssl_cert_path"
 	sslKeyPath  = "ssl_key_path"
 
@@ -325,7 +313,7 @@ const (
 // slice default values
 var (
 	defaultVideoExtensions   = []string{"m4v", "mp4", "mov", "wmv", "avi", "mpg", "mpeg", "rmvb", "rm", "flv", "asf", "mkv", "webm", "f4v"}
-	defaultImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp", "avif", "jxl"}
+	defaultImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp", "avif"}
 	defaultGalleryExtensions = []string{"zip", "cbz"}
 	defaultMenuItems         = []string{"scenes", "images", "groups", "markers", "galleries", "performers", "studios", "tags"}
 )
@@ -363,9 +351,6 @@ type Config struct {
 	keyFile  string
 	sync.RWMutex
 	// deadlock.RWMutex // for deadlock testing/issues
-
-	// cached values for high-frequency calls
-	publicIPWhitelist ipWhitelist
 }
 
 var instance *Config
@@ -394,36 +379,6 @@ func (i *Config) SetConfigFile(fn string) {
 	i.Lock()
 	defer i.Unlock()
 	i.filePath = fn
-}
-
-type ipWhitelist struct {
-	nets  []net.IPNet
-	addrs []net.IP
-}
-
-func (i *Config) initialisePublicWhitelist() error {
-	// ensure ip whitelist entries are valid
-	for _, ip := range i.getStringSlice(PublicWhitelist) {
-		if ip == "*" {
-			return errors.New("cannot use wildcard '*' in public whitelist for security reasons")
-		}
-		_, ipNet, err := net.ParseCIDR(ip)
-		if err == nil {
-			i.publicIPWhitelist.nets = append(i.publicIPWhitelist.nets, *ipNet)
-		} else if ip := net.ParseIP(ip); ip == nil {
-			i.publicIPWhitelist.addrs = append(i.publicIPWhitelist.addrs, ip)
-		} else {
-			return fmt.Errorf("invalid entry in public whitelist: %s", ip)
-		}
-	}
-
-	return nil
-}
-
-// GetPublicWhitelist returns the list of IPs and subnets that are allowed external access to Stash when public access is disabled.
-func (i *Config) GetPublicWhitelist() (nets []net.IPNet, addrs []net.IP) {
-	// don't bother protecting this as it's not writable at runtime
-	return i.publicIPWhitelist.nets, i.publicIPWhitelist.addrs
 }
 
 func (i *Config) InitTLS() {
@@ -923,6 +878,48 @@ func (i *Config) GetScraperExcludeTagPatterns() []string {
 	return i.getStringSlice(ScraperExcludeTagPatterns)
 }
 
+type CamGirlFinderConfig struct {
+	Enabled           bool `koanf:"enabled" json:"enabled"`
+	RequestIntervalMS int  `koanf:"request_interval_ms" json:"requestIntervalMS"`
+	TimeoutSeconds    int  `koanf:"timeout_seconds" json:"timeoutSeconds"`
+	ResultLimit       int  `koanf:"result_limit" json:"resultLimit"`
+}
+
+func DefaultCamGirlFinderConfig() CamGirlFinderConfig {
+	return CamGirlFinderConfig{RequestIntervalMS: 1000, TimeoutSeconds: 15, ResultLimit: 25}
+}
+func (i *Config) GetCamGirlFinderConfig() CamGirlFinderConfig {
+	ret := DefaultCamGirlFinderConfig()
+	_ = i.unmarshalKey(CamGirlFinder, &ret)
+	return ret
+}
+func (i *Config) SetCamGirlFinderConfig(value CamGirlFinderConfig) {
+	i.SetInterface(CamGirlFinder, map[string]interface{}{
+		"enabled":             value.Enabled,
+		"request_interval_ms": value.RequestIntervalMS,
+		"timeout_seconds":     value.TimeoutSeconds,
+		"result_limit":        value.ResultLimit,
+	})
+}
+
+type CompletedRecordingImportConfig struct {
+	Enabled bool   `koanf:"enabled" json:"enabled"`
+	Root    string `koanf:"root" json:"root"`
+}
+
+func (i *Config) GetCompletedRecordingImportConfig() CompletedRecordingImportConfig {
+	var ret CompletedRecordingImportConfig
+	_ = i.unmarshalKey(CompletedRecordingImport, &ret)
+	return ret
+}
+
+func (i *Config) SetCompletedRecordingImportConfig(value CompletedRecordingImportConfig) {
+	i.SetInterface(CompletedRecordingImport, map[string]interface{}{
+		"enabled": value.Enabled,
+		"root":    value.Root,
+	})
+}
+
 func (i *Config) GetStashBoxes() []*models.StashBox {
 	var boxes []*models.StashBox
 	if err := i.unmarshalKey(StashBoxes, &boxes); err != nil {
@@ -1126,21 +1123,6 @@ func (i *Config) GetTranscodeHardwareAcceleration() bool {
 	return i.getBool(TranscodeHardwareAcceleration)
 }
 
-// GetMaxMarkerPreviewDuration returns the ceiling in seconds applied to
-// generated marker preview videos when the marker has an explicit end time.
-// Any value <= 0 disables the ceiling, honoring the marker's end time verbatim.
-func (i *Config) GetMaxMarkerPreviewDuration() int {
-	return i.getInt(MaxMarkerPreviewDuration)
-}
-
-// GetDefaultMarkerPreviewDuration returns the duration in seconds used for
-// marker preview videos when the marker has no usable explicit end time
-// (nil end, or end <= start). Must be a positive value; the configure
-// mutation rejects non-positive input.
-func (i *Config) GetDefaultMarkerPreviewDuration() int {
-	return i.getInt(DefaultMarkerPreviewDuration)
-}
-
 func (i *Config) GetMaxTranscodeSize() models.StreamingResolutionEnum {
 	ret := i.getString(MaxTranscodeSize)
 
@@ -1286,21 +1268,6 @@ func (i *Config) GetMaxSessionAge() int {
 	v := i.forKey(MaxSessionAge)
 	if v.Exists(MaxSessionAge) {
 		ret = v.Int(MaxSessionAge)
-	}
-
-	return ret
-}
-
-// GetSignedURLExpiry gets the expiry time for signed URLs, in seconds.
-// Defaults to 4 hours to accommodate long video playback sessions.
-func (i *Config) GetSignedURLExpiry() time.Duration {
-	i.RLock()
-	defer i.RUnlock()
-
-	ret := signedURLExpiryDefault * time.Second
-	v := i.forKey(SignedURLExpiry)
-	if v.Exists(SignedURLExpiry) {
-		ret = time.Duration(v.Int(SignedURLExpiry)) * time.Second
 	}
 
 	return ret
@@ -1728,6 +1695,19 @@ func (i *Config) GetDefaultGenerateSettings() *models.GenerateMetadataOptions {
 	return nil
 }
 
+// GetDangerousAllowPublicWithoutAuth determines if the security feature is enabled.
+// See https://discourse.stashapp.cc/t/-/1658
+func (i *Config) GetDangerousAllowPublicWithoutAuth() bool {
+	return i.getBool(dangerousAllowPublicWithoutAuth)
+}
+
+// GetSecurityTripwireAccessedFromPublicInternet returns a public IP address if stash
+// has been accessed from the public internet, with no auth enabled, and
+// DangerousAllowPublicWithoutAuth disabled. Returns an empty string otherwise.
+func (i *Config) GetSecurityTripwireAccessedFromPublicInternet() string {
+	return i.getString(SecurityTripwireAccessedFromPublicInternet)
+}
+
 // GetDLNAServerName returns the visible name of the DLNA server. If empty,
 // "stash" will be used.
 func (i *Config) GetDLNAServerName() string {
@@ -1867,8 +1847,12 @@ func (i *Config) GetNoProxy() string {
 	return i.getString(NoProxy)
 }
 
-func (i *Config) GetTrustedProxies() []string {
-	return i.getStringSlice(TrustedProxies)
+// ActivatePublicAccessTripwire sets the security_tripwire_accessed_from_public_internet
+// config field to the provided IP address to indicate that stash has been accessed
+// from this public IP without authentication.
+func (i *Config) ActivatePublicAccessTripwire(requestIP string) error {
+	i.SetString(SecurityTripwireAccessedFromPublicInternet, requestIP)
+	return i.Write()
 }
 
 func (i *Config) getPackageSources(key string) []*models.PackageSource {
@@ -1978,8 +1962,6 @@ func (i *Config) setDefaultValues() {
 	i.setDefault(PreviewExcludeStart, previewExcludeStartDefault)
 	i.setDefault(PreviewExcludeEnd, previewExcludeEndDefault)
 	i.setDefault(PreviewAudio, previewAudioDefault)
-	i.setDefault(MaxMarkerPreviewDuration, maxMarkerPreviewDurationDefault)
-	i.setDefault(DefaultMarkerPreviewDuration, defaultMarkerPreviewDurationDefault)
 	i.setDefault(SoundOnPreview, false)
 
 	i.setDefault(UseCustomSpriteInterval, UseCustomSpriteIntervalDefault)
@@ -1994,6 +1976,9 @@ func (i *Config) setDefaultValues() {
 	i.setDefault(CreateImageClipsFromVideos, createImageClipsFromVideosDefault)
 
 	i.setDefault(Database, defaultDatabaseFilePath)
+
+	i.setDefault(dangerousAllowPublicWithoutAuth, dangerousAllowPublicWithoutAuthDefault)
+	i.setDefault(SecurityTripwireAccessedFromPublicInternet, securityTripwireAccessedFromPublicInternetDefault)
 
 	// Set generated to the metadata path for backwards compat
 	i.setDefault(Generated, i.main.String(Metadata))

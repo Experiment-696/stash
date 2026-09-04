@@ -7,7 +7,7 @@ const useIndeterminate = (
 ) => {
   useEffect(() => {
     if (ref.current) {
-      // XXbiome-ignore no-param-reassign: intentional
+      // eslint-disable-next-line no-param-reassign
       ref.current.indeterminate = value === undefined;
     }
   }, [ref, value]);

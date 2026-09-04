@@ -36,7 +36,7 @@ export const RatingCriterionOption = new ModifierCriterionOption({
   type: "rating100",
   modifierOptions,
   defaultModifier: CriterionModifier.Equals,
-  makeCriterion: (_o, config) =>
+  makeCriterion: (o, config) =>
     new RatingCriterion(getRatingSystemOptions(config)),
   inputType: "number",
 });

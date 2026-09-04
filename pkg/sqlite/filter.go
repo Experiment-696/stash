@@ -90,18 +90,11 @@ func andClauses(clauses ...sqlClause) sqlClause {
 	return joinClauses("AND", clauses...)
 }
 
-type joinType string
-
-const (
-	joinTypeLeft  joinType = "LEFT"
-	joinTypeInner joinType = "INNER"
-)
-
 type join struct {
 	table    string
 	as       string
 	onClause string
-	joinType joinType
+	joinType string
 	args     []interface{}
 
 	// if true, indicates this is required for sorting only
@@ -122,18 +115,14 @@ func (j join) alias() string {
 	return j.as
 }
 
-func (j join) getJoinType() joinType {
-	if j.joinType == "" {
-		return joinTypeLeft
-	}
-	return j.joinType
-}
-
 func (j join) toSQL() string {
 	asStr := ""
-	joinStr := j.getJoinType()
+	joinStr := j.joinType
 	if j.as != "" && j.as != j.table {
 		asStr = " AS " + j.as
+	}
+	if j.joinType == "" {
+		joinStr = "LEFT"
 	}
 
 	return fmt.Sprintf("%s JOIN %s%s ON %s", joinStr, j.table, asStr, j.onClause)
@@ -152,12 +141,6 @@ func (j *joins) addUnique(newJoin join) bool {
 			if !newJoin.sort && jj.sort {
 				(*j)[i].sort = false
 			}
-
-			// if the new join is inner, override existing left join
-			if newJoin.getJoinType() == joinTypeInner && jj.getJoinType() == joinTypeLeft {
-				(*j)[i].joinType = joinTypeInner
-			}
-
 			break
 		}
 	}
@@ -246,11 +229,6 @@ func (f *filterBuilder) or(o *filterBuilder) {
 
 	f.subFilter = o
 	f.subFilterOp = orOp
-
-	// #6914 - joined tables are inner joins by default, but if this is an OR filter,
-	// they need to be left joins
-	f.innerJoinsToLeftJoins()
-	o.innerJoinsToLeftJoins()
 }
 
 // not sets the sub-filter that will be AND NOTed with this one.
@@ -265,23 +243,6 @@ func (f *filterBuilder) not(n *filterBuilder) {
 	f.subFilterOp = notOp
 }
 
-// addJoin adds a join to the filter. The join is expressed in SQL as:
-// <joinType> JOIN <table> [AS <as>] ON <onClause>
-// The AS is omitted if as is empty.
-// This method does not add a join if it its alias/table name is already
-// present in another existing join.
-func (f *filterBuilder) addJoin(joinType joinType, table, as, onClause string, args ...interface{}) {
-	newJoin := join{
-		table:    table,
-		as:       as,
-		onClause: onClause,
-		joinType: joinType,
-		args:     args,
-	}
-
-	f.joins.add(newJoin)
-}
-
 // addLeftJoin adds a left join to the filter. The join is expressed in SQL as:
 // LEFT JOIN <table> [AS <as>] ON <onClause>
 // The AS is omitted if as is empty.
@@ -292,7 +253,7 @@ func (f *filterBuilder) addLeftJoin(table, as, onClause string, args ...interfac
 		table:    table,
 		as:       as,
 		onClause: onClause,
-		joinType: joinTypeLeft,
+		joinType: "LEFT",
 		args:     args,
 	}
 
@@ -309,19 +270,11 @@ func (f *filterBuilder) addInnerJoin(table, as, onClause string, args ...interfa
 		table:    table,
 		as:       as,
 		onClause: onClause,
-		joinType: joinTypeInner,
+		joinType: "INNER",
 		args:     args,
 	}
 
 	f.joins.add(newJoin)
-}
-
-func (f *filterBuilder) innerJoinsToLeftJoins() {
-	for i := range f.joins {
-		if f.joins[i].getJoinType() == joinTypeInner {
-			f.joins[i].joinType = joinTypeLeft
-		}
-	}
 }
 
 // addWhere adds a where clause and arguments to the filter. Where clauses

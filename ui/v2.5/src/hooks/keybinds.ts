@@ -38,7 +38,7 @@ export function useRatingKeybinds(
     for (let i = 0; i <= 9; ++i) {
       Mousetrap.bind(i.toString(), () => {
         if (firstChar.current !== undefined) {
-          let combined = parseInt(firstChar.current + i.toString(), 10);
+          let combined = parseInt(firstChar.current + i.toString());
           if (combined === 0) {
             combined = 100;
           }

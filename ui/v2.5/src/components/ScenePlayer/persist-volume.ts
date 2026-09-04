@@ -46,6 +46,7 @@ class PersistVolumePlugin extends videojs.getPlugin("plugin") {
 // Register the plugin with video.js.
 videojs.registerPlugin("persistVolume", PersistVolumePlugin);
 
+/* eslint-disable @typescript-eslint/naming-convention */
 declare module "video.js" {
   interface VideoJsPlayer {
     persistVolume: () => PersistVolumePlugin;

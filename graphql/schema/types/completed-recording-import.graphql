@@ -1,0 +1,109 @@
+enum CompletedRecordingPrecision {
+  DATE
+  MINUTE
+  SECOND
+}
+
+enum CompletedRecordingOutcome {
+  EXACT_READY
+  ALREADY_APPLIED
+  REVIEW_REQUIRED
+  SITE_NOT_FOUND
+  MODEL_NOT_FOUND
+  SCENE_NOT_FOUND
+  INVALID_NAME
+  CHANGED_SINCE_PREVIEW
+  OUTSIDE_ROOT
+  REJECTED_SYMLINK
+  APPLIED
+  SKIPPED
+}
+
+enum CompletedRecordingBoundReason {
+  MAX_FILES
+  MAX_DEPTH
+  TIMEOUT
+}
+
+enum CompletedRecordingReviewReason {
+  MULTIPLE_SCENES
+  MULTIPLE_SITES
+  MULTIPLE_ALIASES
+  HISTORICAL_ALIAS_REUSED
+}
+
+input CompletedRecordingPreviewInput {
+  maxFiles: Int!
+  maxDepth: Int!
+  timeoutMS: Int!
+  extensions: [String!]!
+  filenamePattern: String!
+  timestampLayout: String!
+  timezone: String!
+  precision: CompletedRecordingPrecision!
+  parserVersion: String!
+}
+
+type CompletedRecordingImportConfig {
+  enabled: Boolean!
+  root: String!
+}
+
+input CompletedRecordingImportConfigInput {
+  enabled: Boolean!
+  root: String!
+}
+
+type CompletedRecordingCandidate {
+  candidateID: ID!
+  relativePath: String!
+  platform: String!
+  username: String!
+  completedAt: Timestamp
+  timezone: String!
+  precision: CompletedRecordingPrecision
+  sceneID: ID
+  siteID: ID
+  modelID: ID
+  matchState: String!
+  outcome: CompletedRecordingOutcome!
+  reviewReason: String
+  reviewCode: CompletedRecordingReviewReason
+}
+
+type CompletedRecordingPreview {
+  previewID: ID!
+  createdAt: Timestamp!
+  expiresAt: Timestamp!
+  scannedCount: Int!
+  truncated: Boolean!
+  boundReason: CompletedRecordingBoundReason
+  items: [CompletedRecordingCandidate!]!
+}
+
+input CompletedRecordingApplyInput {
+  previewID: ID!
+  selectedCandidateIDs: [ID!]!
+}
+
+type CompletedRecordingApplyResult {
+  candidateID: ID!
+  outcome: CompletedRecordingOutcome!
+  reason: String
+}
+
+extend type Mutation {
+  completedRecordingImportConfigure(
+    input: CompletedRecordingImportConfigInput!
+  ): CompletedRecordingImportConfig!
+  completedRecordingPreview(
+    input: CompletedRecordingPreviewInput!
+  ): CompletedRecordingPreview!
+  completedRecordingApply(
+    input: CompletedRecordingApplyInput!
+  ): [CompletedRecordingApplyResult!]!
+}
+
+extend type Query {
+  completedRecordingImportConfig: CompletedRecordingImportConfig!
+}

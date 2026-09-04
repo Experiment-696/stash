@@ -1,0 +1,55 @@
+query Me {
+  me {
+    id
+    username
+    role
+    status
+    capabilities
+    createdAt
+    updatedAt
+  }
+}
+
+query Users {
+  users {
+    id
+    username
+    role
+    status
+    createdAt
+    updatedAt
+  }
+}
+
+mutation CreateUser($input: UserCreateInput!) {
+  createUser(input: $input) {
+    id
+    username
+    role
+    status
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateUserAccess($input: UserAccessInput!) {
+  updateUserAccess(input: $input) {
+    id
+    username
+    role
+    status
+    createdAt
+    updatedAt
+  }
+}
+
+mutation ResetUserPassword($id: ID!, $password: String!) {
+  resetUserPassword(id: $id, password: $password)
+}
+
+mutation RevokeUserSessions($id: ID!) {
+  revokeUserSessions(id: $id)
+}
+mutation RevokeUserAPITokens($id: ID!) {
+  revokeUserAPITokens(id: $id)
+}

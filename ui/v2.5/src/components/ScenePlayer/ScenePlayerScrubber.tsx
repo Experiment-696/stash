@@ -136,7 +136,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
   useEffect(() => {
     const onResize = (entries: ResizeObserverEntry[]) => {
       const newWidth = entries[0].target.clientWidth;
-      if (_width.current !== newWidth) {
+      if (_width.current != newWidth) {
         // set prevTime to NaN to not use a transition when updating the slider position
         prevTime.current = NaN;
         _width.current = newWidth;
@@ -153,23 +153,23 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     };
   }, []);
 
-  const setEaseOutTransition = useCallback(() => {
+  function setLinearTransition() {
+    const slider = sliderEl.current!;
+    slider.style.transition = "500ms linear";
+  }
+
+  function setEaseOutTransition() {
     const slider = sliderEl.current!;
     slider.style.transition = "333ms ease-out";
-  }, []);
+  }
 
-  const clearTransition = useCallback(() => {
+  function clearTransition() {
     const slider = sliderEl.current!;
     slider.style.transition = "";
-  }, []);
+  }
 
   // Update slider position when player time changes
   useEffect(() => {
-    function setLinearTransition() {
-      const slider = sliderEl.current!;
-      slider.style.transition = "500ms linear";
-    }
-
     if (!scrubWidth || !width) return;
 
     const duration = Number(file.duration);
@@ -180,7 +180,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     if (Math.abs(newPosition - position.current) < 1) return;
 
     const delta = Math.abs(time - prevTime.current);
-    if (Number.isNaN(delta)) {
+    if (isNaN(delta)) {
       // Don't use a transition on initial time change or after resize
       clearTransition();
     } else if (delta <= 1) {
@@ -192,15 +192,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
     prevTime.current = time;
 
     setPosition(newPosition, false);
-  }, [
-    file.duration,
-    setPosition,
-    time,
-    width,
-    scrubWidth,
-    clearTransition,
-    setEaseOutTransition,
-  ]);
+  }, [file.duration, setPosition, time, width, scrubWidth]);
 
   const onMouseUp = useCallback(
     (event: MouseEvent) => {
@@ -233,7 +225,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       setEaseOutTransition();
       setPosition(newPosition, true);
     },
-    [setPosition, setEaseOutTransition]
+    [setPosition]
   );
 
   const onMouseDown = useCallback((event: MouseEvent) => {
@@ -274,7 +266,7 @@ export const ScenePlayerScrubber: React.FC<IScenePlayerScrubberProps> = ({
       setPosition(position.current + delta, false);
       lastMouseEvent.current = event;
     },
-    [onScroll, setPosition, clearTransition]
+    [onScroll, setPosition]
   );
 
   useEffect(() => {

@@ -1,3 +1,4 @@
+/* eslint @typescript-eslint/no-unused-vars: ["error", { "argsIgnorePattern": "^_" }] */
 import { IntlShape } from "react-intl";
 import {
   CriterionModifier,
@@ -99,7 +100,7 @@ export abstract class Criterion {
 
 // V = criterion value type
 export abstract class ModifierCriterion<
-  V extends CriterionValue,
+  V extends CriterionValue
 > extends Criterion {
   protected _modifier!: CriterionModifier;
   public get modifier(): CriterionModifier {
@@ -165,7 +166,7 @@ export abstract class ModifierCriterion<
 
     const messageID = !sfwContentMode
       ? this.criterionOption.messageID
-      : (this.criterionOption.sfwMessageID ?? this.criterionOption.messageID);
+      : this.criterionOption.sfwMessageID ?? this.criterionOption.messageID;
 
     return intl.formatMessage(
       { id: "criterion_modifier.format_string" },
@@ -178,7 +179,7 @@ export abstract class ModifierCriterion<
   }
 
   public toQueryParams(): Record<string, unknown> {
-    const encodedCriterion: Record<string, unknown> = {
+    let encodedCriterion: Record<string, unknown> = {
       type: this.criterionOption.type,
       modifier: this.modifier,
     };
@@ -522,7 +523,7 @@ export class IHierarchicalLabeledIdCriterion extends ModifierCriterion<IHierarch
 
     const messageID = !sfwContentMode
       ? this.criterionOption.messageID
-      : (this.criterionOption.sfwMessageID ?? this.criterionOption.messageID);
+      : this.criterionOption.sfwMessageID ?? this.criterionOption.messageID;
 
     return intl.formatMessage(
       { id },

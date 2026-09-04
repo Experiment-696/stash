@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stashapp.invalid/benchmark/sqlite-samples.schema.json",
+  "title": "Stash SQLite benchmark raw samples",
+  "type": "array",
+  "minItems": 15,
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["operation", "rows", "seconds"],
+    "properties": {
+      "operation": { "enum": ["insert", "lookup", "upsert"] },
+      "rows": { "type": "integer", "minimum": 1 },
+      "seconds": { "type": "number", "exclusiveMinimum": 0 }
+    }
+  }
+}

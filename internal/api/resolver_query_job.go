@@ -33,26 +33,15 @@ func (r *queryResolver) FindJob(ctx context.Context, input FindJobInput) (*Job, 
 }
 
 func jobToJobModel(j job.Job) *Job {
-	subTasks := make([]string, len(j.Details))
-	for i, t := range j.Details {
-		subTasks[i] = sanitiseWebsocketString(t)
-	}
-
-	var jobError *string
-	if j.Error != nil {
-		s := sanitiseWebsocketString(*j.Error)
-		jobError = &s
-	}
-
 	ret := &Job{
 		ID:          strconv.Itoa(j.ID),
 		Status:      JobStatus(j.Status),
-		Description: sanitiseWebsocketString(j.Description),
-		SubTasks:    subTasks,
+		Description: j.Description,
+		SubTasks:    j.Details,
 		StartTime:   j.StartTime,
 		EndTime:     j.EndTime,
 		AddTime:     j.AddTime,
-		Error:       jobError,
+		Error:       j.Error,
 	}
 
 	if j.Progress != -1 {

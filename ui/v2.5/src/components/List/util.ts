@@ -5,7 +5,7 @@ import { useHistory, useLocation } from "react-router-dom";
 import { isEqual, isFunction } from "lodash-es";
 import { QueryResult } from "@apollo/client";
 import { IHasID } from "src/utils/data";
-import { useConfigurationContext } from "src/hooks/Config";
+import { useFindDefaultFilter } from "src/core/StashService";
 import { View } from "./views";
 import { usePrevious } from "src/hooks/state";
 import * as GQL from "src/core/generated-graphql";
@@ -66,7 +66,7 @@ export function useFilterURL(
 
     // the query has changed, update filter if necessary
     setFilter((prevFilter) => {
-      const newFilter = prevFilter.empty();
+      let newFilter = prevFilter.empty();
       newFilter.configureFromQueryString(location.search);
       if (!isEqual(newFilter, prevFilter)) {
         // filter may have changed if random seed was set, update the URL
@@ -94,11 +94,11 @@ export function useFilterURL(
 }
 
 export function useDefaultFilter(emptyFilter: ListFilterModel, view?: View) {
-  const { configuration: config } = useConfigurationContext();
+  const { data } = useFindDefaultFilter(emptyFilter.mode, !view);
 
   const defaultFilter = useMemo(() => {
-    if (view && config?.ui.defaultFilters?.[view]) {
-      const savedFilter = config.ui.defaultFilters[view]!;
+    if (view && data?.findDefaultFilter) {
+      const savedFilter = data.findDefaultFilter;
       const newFilter = emptyFilter.clone();
 
       newFilter.currentPage = 1;
@@ -112,7 +112,7 @@ export function useDefaultFilter(emptyFilter: ListFilterModel, view?: View) {
       newFilter.randomSeed = -1;
       return newFilter;
     }
-  }, [view, config?.ui.defaultFilters, emptyFilter]);
+  }, [view, data?.findDefaultFilter, emptyFilter]);
 
   const retFilter = defaultFilter ?? emptyFilter;
 
@@ -510,7 +510,7 @@ export function useCachedQueryResult<T extends QueryResult>(
 export interface IQueryResultHook<
   T extends QueryResult,
   E extends IHasID = IHasID,
-  M = unknown,
+  M = unknown
 > {
   filterHook?: (filter: ListFilterModel) => ListFilterModel;
   useResult: (filter: ListFilterModel) => T;
@@ -522,7 +522,7 @@ export interface IQueryResultHook<
 export function useQueryResult<
   T extends QueryResult,
   E extends IHasID = IHasID,
-  M = unknown,
+  M = unknown
 >(
   props: IQueryResultHook<T, E, M> & {
     filter: ListFilterModel;

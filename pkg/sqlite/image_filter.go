@@ -41,13 +41,13 @@ func (qb *imageFilterHandler) handle(ctx context.Context, f *filterBuilder) {
 		return
 	}
 
-	f.handleCriterion(ctx, qb.criterionHandler())
-
 	sf := imageFilter.SubFilter()
 	if sf != nil {
 		sub := &imageFilterHandler{sf}
 		handleSubFilter(ctx, sub, f, imageFilter.OperatorFilter)
 	}
+
+	f.handleCriterion(ctx, qb.criterionHandler())
 }
 
 func (qb *imageFilterHandler) criterionHandler() criterionHandler {
@@ -56,12 +56,8 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 		intCriterionHandler(imageFilter.ID, "images.id", nil),
 		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
 			if imageFilter.Checksum != nil {
-				joinType := joinTypeInner
-				if imageFilter.Checksum.Modifier == models.CriterionModifierIsNull || imageFilter.Checksum.Modifier == models.CriterionModifierNotMatchesRegex {
-					joinType = joinTypeLeft
-				}
-				imageRepository.addImagesFilesTable(f, joinType)
-				f.addJoin(joinType, fingerprintTable, "fingerprints_md5", "images_files.file_id = fingerprints_md5.file_id AND fingerprints_md5.type = 'md5'")
+				imageRepository.addImagesFilesTable(f)
+				f.addInnerJoin(fingerprintTable, "fingerprints_md5", "images_files.file_id = fingerprints_md5.file_id AND fingerprints_md5.type = 'md5'")
 			}
 
 			stringCriterionHandler(imageFilter.Checksum, "fingerprints_md5.fingerprint")(ctx, f)
@@ -69,8 +65,8 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 
 		&phashDistanceCriterionHandler{
 			joinFn: func(f *filterBuilder) {
-				imageRepository.addImagesFilesTable(f, joinTypeInner)
-				f.addInnerJoin(fingerprintTable, "fingerprints_phash", "images_files.file_id = fingerprints_phash.file_id AND fingerprints_phash.type = 'phash'")
+				imageRepository.addImagesFilesTable(f)
+				f.addLeftJoin(fingerprintTable, "fingerprints_phash", "images_files.file_id = fingerprints_phash.file_id AND fingerprints_phash.type = 'phash'")
 			},
 			criterion: imageFilter.PhashDistance,
 		},
@@ -83,7 +79,17 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 		pathCriterionHandler(imageFilter.Path, "folders.path", "files.basename", imageRepository.addFoldersTable),
 		qb.fileCountCriterionHandler(imageFilter.FileCount),
 		intCriterionHandler(imageFilter.Rating100, "images.rating", nil),
-		intCriterionHandler(imageFilter.OCounter, "images.o_counter", nil),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if imageFilter.OCounter == nil {
+				return
+			}
+			if userID, ok := personalActivityUserID(ctx); ok {
+				clause, args := getIntCriterionWhereClause("COALESCE(("+personalImageOCountSQL(userID, "images.id")+"), 0)", *imageFilter.OCounter)
+				f.addWhere(clause, args...)
+				return
+			}
+			intCriterionHandler(imageFilter.OCounter, "images.o_counter", nil)(ctx, f)
+		}),
 		boolCriterionHandler(imageFilter.Organized, "images.organized", nil),
 		&dateCriterionHandler{imageFilter.Date, "images.date", nil},
 		qb.urlsCriterionHandler(imageFilter.URL),
@@ -152,8 +158,8 @@ func (qb *imageFilterHandler) criterionHandler() criterionHandler {
 				isRelated:  true,
 			},
 			joinFn: func(f *filterBuilder) {
-				imageRepository.addFilesTable(f, joinTypeInner)
-				imageRepository.addFoldersTable(f, joinTypeInner)
+				imageRepository.addFilesTable(f)
+				imageRepository.addFoldersTable(f)
 			},
 			// don't use a subquery; join directly
 			directJoin: true,
@@ -176,18 +182,18 @@ func (qb *imageFilterHandler) missingCriterionHandler(isMissing *string) criteri
 		if isMissing != nil && *isMissing != "" {
 			switch *isMissing {
 			case "url":
-				imagesURLsTableMgr.leftJoin(f, "", "images.id")
+				imagesURLsTableMgr.join(f, "", "images.id")
 				f.addWhere("image_urls.url IS NULL")
 			case "studio":
 				f.addWhere("images.studio_id IS NULL")
 			case "performers":
-				imageRepository.performers.leftJoin(f, "performers_join", "images.id")
+				imageRepository.performers.join(f, "performers_join", "images.id")
 				f.addWhere("performers_join.image_id IS NULL")
 			case "galleries":
-				imageRepository.galleries.leftJoin(f, "galleries_join", "images.id")
+				imageRepository.galleries.join(f, "galleries_join", "images.id")
 				f.addWhere("galleries_join.image_id IS NULL")
 			case "tags":
-				imageRepository.tags.leftJoin(f, "tags_join", "images.id")
+				imageRepository.tags.join(f, "tags_join", "images.id")
 				f.addWhere("tags_join.image_id IS NULL")
 			default:
 				if err := validateIsMissing(*isMissing, []string{
@@ -208,15 +214,15 @@ func (qb *imageFilterHandler) urlsCriterionHandler(url *models.StringCriterionIn
 		primaryFK:    imageIDColumn,
 		joinTable:    imagesURLsTable,
 		stringColumn: imageURLColumn,
-		addJoinTable: func(f *filterBuilder, joinType joinType) {
-			imagesURLsTableMgr.join(f, joinType, "", "images.id")
+		addJoinTable: func(f *filterBuilder) {
+			imagesURLsTableMgr.join(f, "", "images.id")
 		},
 	}
 
 	return h.handler(url)
 }
 
-func (qb *imageFilterHandler) getMultiCriterionHandlerBuilder(foreignTable, joinTable, foreignFK string, addJoinsFunc func(f *filterBuilder, joinType joinType)) multiCriterionHandlerBuilder {
+func (qb *imageFilterHandler) getMultiCriterionHandlerBuilder(foreignTable, joinTable, foreignFK string, addJoinsFunc func(f *filterBuilder)) multiCriterionHandlerBuilder {
 	return multiCriterionHandlerBuilder{
 		primaryTable: imageTable,
 		foreignTable: foreignTable,
@@ -253,7 +259,7 @@ func (qb *imageFilterHandler) tagCountCriterionHandler(tagCount *models.IntCrite
 }
 
 func (qb *imageFilterHandler) galleriesCriterionHandler(galleries *models.MultiCriterionInput) criterionHandlerFunc {
-	addJoinsFunc := func(f *filterBuilder, joinType joinType) {
+	addJoinsFunc := func(f *filterBuilder) {
 		if galleries.Modifier == models.CriterionModifierIncludes || galleries.Modifier == models.CriterionModifierIncludesAll {
 			f.addInnerJoin(galleriesImagesTable, "", "galleries_images.image_id = images.id")
 			f.addInnerJoin(galleryTable, "", "galleries_images.gallery_id = galleries.id")
@@ -272,8 +278,8 @@ func (qb *imageFilterHandler) performersCriterionHandler(performers *models.Mult
 		primaryFK:    imageIDColumn,
 		foreignFK:    performerIDColumn,
 
-		addJoinTable: func(f *filterBuilder, joinType joinType) {
-			imageRepository.performers.join(f, joinType, "performers_join", "images.id")
+		addJoinTable: func(f *filterBuilder) {
+			imageRepository.performers.join(f, "performers_join", "images.id")
 		},
 	}
 

@@ -858,6 +858,26 @@ func (qb *FileStore) validateFilter(fileFilter *models.FileFilterType) error {
 	return nil
 }
 
+func (qb *FileStore) makeFilter(ctx context.Context, fileFilter *models.FileFilterType) *filterBuilder {
+	query := &filterBuilder{}
+
+	if fileFilter.And != nil {
+		query.and(qb.makeFilter(ctx, fileFilter.And))
+	}
+	if fileFilter.Or != nil {
+		query.or(qb.makeFilter(ctx, fileFilter.Or))
+	}
+	if fileFilter.Not != nil {
+		query.not(qb.makeFilter(ctx, fileFilter.Not))
+	}
+
+	filter := filterBuilderFromHandler(ctx, &fileFilterHandler{
+		fileFilter: fileFilter,
+	})
+
+	return filter
+}
+
 func (qb *FileStore) Query(ctx context.Context, options models.FileQueryOptions) (*models.FileQueryResult, error) {
 	fileFilter := options.FileFilter
 	findFilter := options.FindFilter
@@ -883,9 +903,7 @@ func (qb *FileStore) Query(ctx context.Context, options models.FileQueryOptions)
 	if err := qb.validateFilter(fileFilter); err != nil {
 		return nil, err
 	}
-	filter := filterBuilderFromHandler(ctx, &fileFilterHandler{
-		fileFilter: fileFilter,
-	})
+	filter := qb.makeFilter(ctx, fileFilter)
 
 	if err := query.addFilter(filter); err != nil {
 		return nil, err

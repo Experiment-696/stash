@@ -59,8 +59,9 @@ export const SceneMarkersPanel: React.FC<ISceneMarkersPanelProps> = ({
       />
     );
 
-  const sceneMarkers =
-    data?.sceneMarkerTags.flatMap((tag) => tag.scene_markers) ?? [];
+  const sceneMarkers = (
+    data?.sceneMarkerTags.map((tag) => tag.scene_markers) ?? []
+  ).reduce((prev, current) => [...prev, ...current], []);
 
   return (
     <div className="scene-markers-panel">

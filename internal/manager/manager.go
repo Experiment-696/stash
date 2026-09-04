@@ -27,6 +27,7 @@ import (
 	"github.com/stashapp/stash/pkg/scraper"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/sqlite"
+	"github.com/stashapp/stash/pkg/txn"
 
 	// register custom migrations
 	_ "github.com/stashapp/stash/pkg/sqlite/migrations"
@@ -78,6 +79,25 @@ func GetInstance() *Manager {
 		panic("manager not initialized")
 	}
 	return instance
+}
+
+// ListPluginsIfInitialized returns the process-owned plugin catalog when the
+// manager is ready. Isolated resolver tests and early bootstrap callers get an
+// empty catalog instead of depending on global manager initialization.
+func ListPluginsIfInitialized() []*plugin.Plugin {
+	if instance == nil || instance.PluginCache == nil {
+		return nil
+	}
+	return instance.PluginCache.ListPlugins()
+}
+
+// RefreshDLNAForAccountTransition synchronously reapplies the DLNA account
+// gate after an account is created. The nil check keeps isolated resolver
+// tests independent from the process-wide manager singleton.
+func RefreshDLNAForAccountTransition() {
+	if instance != nil {
+		instance.RefreshDLNA()
+	}
 }
 
 func (s *Manager) SetBlobStoreOptions() {
@@ -149,7 +169,7 @@ func (s *Manager) RefreshStreamManager() {
 // RefreshDLNA starts/stops the DLNA service as needed.
 func (s *Manager) RefreshDLNA() {
 	dlnaService := s.DLNAService
-	enabled := s.Config.GetDLNADefaultEnabled()
+	enabled := s.Config.GetDLNADefaultEnabled() && s.dlnaAllowedForCurrentAccountMode()
 	if !enabled && dlnaService.IsRunning() {
 		dlnaService.Stop(nil)
 	} else if enabled && !dlnaService.IsRunning() {
@@ -157,6 +177,25 @@ func (s *Manager) RefreshDLNA() {
 			logger.Warnf("error starting DLNA service: %v", err)
 		}
 	}
+}
+
+// DLNA authenticates devices by network allowlist rather than a Stash
+// principal. Until device principals can be mapped to media.stream, fail
+// closed whenever the multiuser account database is active.
+func (s *Manager) dlnaAllowedForCurrentAccountMode() bool {
+	if s.Database == nil || s.Database.Ready() != nil {
+		return false
+	}
+	count := 0
+	if err := txn.WithReadTxn(context.Background(), s.Database, func(ctx context.Context) error {
+		var err error
+		count, err = s.Database.User.Count(ctx)
+		return err
+	}); err != nil {
+		logger.Warnf("unable to determine account mode for DLNA: %v", err)
+		return false
+	}
+	return count == 0
 }
 
 func createPackageManager(localPath string, srcPathGetter pkg.SourcePathGetter) *pkg.Manager {
@@ -291,11 +330,6 @@ func (s *Manager) Setup(ctx context.Context, input SetupInput) error {
 	}
 
 	cfg.SetInterface(config.Stash, input.Stashes)
-
-	if input.InitialUsername != "" && input.InitialPassword != "" {
-		cfg.SetString(config.Username, input.InitialUsername)
-		cfg.SetPassword(input.InitialPassword)
-	}
 
 	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("error writing configuration file: %v", err)

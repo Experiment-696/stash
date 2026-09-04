@@ -2,8 +2,19 @@ mutation Setup($input: SetupInput!) {
   setup(input: $input)
 }
 
-mutation Migrate($input: MigrateInput!) {
-  migrate(input: $input)
+mutation BootstrapFirstAdmin($input: FirstAdminBootstrapInput!) {
+  bootstrapFirstAdmin(input: $input) {
+    id
+    username
+  }
+}
+
+mutation BootstrapConfigureUI($lastNoteSeen: String!) {
+  bootstrapConfigureUI(lastNoteSeen: $lastNoteSeen)
+}
+
+mutation Migrate {
+  migrate
 }
 
 mutation DownloadFFMpeg {

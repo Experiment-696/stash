@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/file"
 	"github.com/stashapp/stash/pkg/logger"
@@ -17,8 +18,39 @@ import (
 	"github.com/stashapp/stash/pkg/scene"
 	"github.com/stashapp/stash/pkg/sliceutil"
 	"github.com/stashapp/stash/pkg/sliceutil/stringslice"
+	"github.com/stashapp/stash/pkg/sqlite"
 	"github.com/stashapp/stash/pkg/utils"
 )
+
+func (r *mutationResolver) SceneSetRating(ctx context.Context, id string, rating100 *int) (*models.Scene, error) {
+	principal, err := authz.RequireContext(ctx, authz.PreferenceSelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
+	sceneID, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, fmt.Errorf("converting id: %w", err)
+	}
+	var ret *models.Scene
+	err = r.withTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().Scene.Find(txCtx, sceneID)
+		if err != nil {
+			return err
+		}
+		if ret == nil {
+			return errors.New("scene not found")
+		}
+		return r.tokenDatabase().PersonalState.SetSceneRating(txCtx, userID, int64(sceneID), rating100)
+	})
+	if err != nil {
+		return nil, personalDataError("set scene rating", err)
+	}
+	return ret, nil
+}
 
 // used to refetch scene after hooks run
 func (r *mutationResolver) getScene(ctx context.Context, id int) (ret *models.Scene, err error) {
@@ -121,6 +153,9 @@ func (r *mutationResolver) SceneCreate(ctx context.Context, input models.SceneCr
 }
 
 func (r *mutationResolver) SceneUpdate(ctx context.Context, input models.SceneUpdateInput) (ret *models.Scene, err error) {
+	if err := validateModeratorMetadataFields(ctx, getUpdateInputMap(ctx), moderatorSceneUpdateFields); err != nil {
+		return nil, err
+	}
 	translator := changesetTranslator{
 		inputMap: getUpdateInputMap(ctx),
 	}
@@ -139,6 +174,9 @@ func (r *mutationResolver) SceneUpdate(ctx context.Context, input models.SceneUp
 
 func (r *mutationResolver) ScenesUpdate(ctx context.Context, input []*models.SceneUpdateInput) (ret []*models.Scene, err error) {
 	inputMaps := getUpdateInputMaps(ctx)
+	if err := validateModeratorMetadataInputList(ctx, inputMaps, moderatorSceneUpdateFields); err != nil {
+		return nil, err
+	}
 
 	// Start the transaction and save the scenes
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
@@ -354,6 +392,9 @@ func (r *mutationResolver) sceneUpdateCoverImage(ctx context.Context, s *models.
 }
 
 func (r *mutationResolver) BulkSceneUpdate(ctx context.Context, input BulkSceneUpdateInput) ([]*models.Scene, error) {
+	if err := validateModeratorMetadataFields(ctx, getUpdateInputMap(ctx), moderatorBulkSceneUpdateFields); err != nil {
+		return nil, err
+	}
 	sceneIDs, err := stringslice.StringSliceToIntSlice(input.Ids)
 	if err != nil {
 		return nil, fmt.Errorf("converting ids: %w", err)
@@ -1066,36 +1107,50 @@ func (r *mutationResolver) SceneMarkersDestroy(ctx context.Context, markerIDs []
 }
 
 func (r *mutationResolver) SceneSaveActivity(ctx context.Context, id string, resumeTime *float64, playDuration *float64) (ret bool, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return false, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return false, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return false, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		ret, err = qb.SaveActivity(ctx, sceneID, resumeTime, playDuration)
+		err = r.tokenDatabase().Activity.SaveScene(ctx, userID, int64(sceneID), resumeTime, playDuration)
+		ret = err == nil
 		return err
 	}); err != nil {
-		return false, err
+		return false, personalDataError("save scene activity", err)
 	}
 
 	return ret, nil
 }
 
 func (r *mutationResolver) SceneResetActivity(ctx context.Context, id string, resetResume *bool, resetDuration *bool) (ret bool, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return false, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return false, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return false, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		ret, err = qb.ResetActivity(ctx, sceneID, utils.IsTrue(resetResume), utils.IsTrue(resetDuration))
+		err = r.tokenDatabase().Activity.ResetScene(ctx, userID, int64(sceneID), utils.IsTrue(resetResume), utils.IsTrue(resetDuration))
+		ret = err == nil
 		return err
 	}); err != nil {
-		return false, err
+		return false, personalDataError("reset scene activity", err)
 	}
 
 	return ret, nil
@@ -1103,6 +1158,14 @@ func (r *mutationResolver) SceneResetActivity(ctx context.Context, id string, re
 
 // deprecated
 func (r *mutationResolver) SceneIncrementPlayCount(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
@@ -1111,18 +1174,24 @@ func (r *mutationResolver) SceneIncrementPlayCount(ctx context.Context, id strin
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.AddViews(ctx, sceneID, nil)
+		updatedTimes, err = r.tokenDatabase().Activity.AddSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryPlay, nil)
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("increment scene play history", err)
 	}
 
 	return len(updatedTimes), nil
 }
 
 func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1138,12 +1207,10 @@ func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*tim
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.AddViews(ctx, sceneID, times)
+		updatedTimes, err = r.tokenDatabase().Activity.AddSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryPlay, times)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, personalDataError("add scene play history", err)
 	}
 
 	return &HistoryMutationResult{
@@ -1153,6 +1220,14 @@ func (r *mutationResolver) SceneAddPlay(ctx context.Context, id string, t []*tim
 }
 
 func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, err
@@ -1167,12 +1242,10 @@ func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.DeleteViews(ctx, sceneID, times)
+		updatedTimes, err = r.tokenDatabase().Activity.DeleteSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryPlay, times)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, personalDataError("delete scene play history", err)
 	}
 
 	return &HistoryMutationResult{
@@ -1182,18 +1255,25 @@ func (r *mutationResolver) SceneDeletePlay(ctx context.Context, id string, t []*
 }
 
 func (r *mutationResolver) SceneResetPlayCount(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, err
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		ret, err = qb.DeleteAllViews(ctx, sceneID)
+		err = r.tokenDatabase().Activity.ResetSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryPlay)
+		ret = 0
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("reset scene play history", err)
 	}
 
 	return ret, nil
@@ -1201,6 +1281,14 @@ func (r *mutationResolver) SceneResetPlayCount(ctx context.Context, id string) (
 
 // deprecated
 func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
@@ -1209,12 +1297,10 @@ func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret 
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.AddO(ctx, sceneID, nil)
+		updatedTimes, err = r.tokenDatabase().Activity.AddSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryO, nil)
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("increment scene O history", err)
 	}
 
 	return len(updatedTimes), nil
@@ -1222,6 +1308,14 @@ func (r *mutationResolver) SceneIncrementO(ctx context.Context, id string) (ret 
 
 // deprecated
 func (r *mutationResolver) SceneDecrementO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
@@ -1230,36 +1324,49 @@ func (r *mutationResolver) SceneDecrementO(ctx context.Context, id string) (ret 
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.DeleteO(ctx, sceneID, nil)
+		updatedTimes, err = r.tokenDatabase().Activity.DeleteSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryO, nil)
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("decrement scene O history", err)
 	}
 
 	return len(updatedTimes), nil
 }
 
 func (r *mutationResolver) SceneResetO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		ret, err = qb.ResetO(ctx, sceneID)
+		err = r.tokenDatabase().Activity.ResetSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryO)
+		ret = 0
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("reset scene O history", err)
 	}
 
 	return ret, nil
 }
 
 func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1275,12 +1382,10 @@ func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.T
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.AddO(ctx, sceneID, times)
+		updatedTimes, err = r.tokenDatabase().Activity.AddSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryO, times)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, personalDataError("add scene O history", err)
 	}
 
 	return &HistoryMutationResult{
@@ -1290,6 +1395,14 @@ func (r *mutationResolver) SceneAddO(ctx context.Context, id string, t []*time.T
 }
 
 func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*time.Time) (*HistoryMutationResult, error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return nil, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return nil, err
+	}
 	sceneID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("converting id: %w", err)
@@ -1304,12 +1417,10 @@ func (r *mutationResolver) SceneDeleteO(ctx context.Context, id string, t []*tim
 	var updatedTimes []time.Time
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Scene
-
-		updatedTimes, err = qb.DeleteO(ctx, sceneID, times)
+		updatedTimes, err = r.tokenDatabase().Activity.DeleteSceneHistory(ctx, userID, int64(sceneID), sqlite.SceneHistoryO, times)
 		return err
 	}); err != nil {
-		return nil, err
+		return nil, personalDataError("delete scene O history", err)
 	}
 
 	return &HistoryMutationResult{

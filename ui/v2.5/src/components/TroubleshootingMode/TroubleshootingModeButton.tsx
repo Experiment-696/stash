@@ -15,7 +15,9 @@ const DIALOG_ITEMS = [
 export const TroubleshootingModeButton: React.FC = () => {
   const intl = useIntl();
   const [showDialog, setShowDialog] = useState(false);
-  const { enable, isLoading } = useTroubleshootingMode();
+  const { enable, isAdmin, isLoading } = useTroubleshootingMode();
+
+  if (!isAdmin) return null;
 
   return (
     <>

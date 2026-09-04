@@ -5,8 +5,6 @@ import { useHistory } from "react-router-dom";
 import Mousetrap from "mousetrap";
 import * as GQL from "src/core/generated-graphql";
 import { useFilteredItemList } from "../List/ItemList";
-import { useGalleriesLightbox } from "src/hooks/Lightbox/hooks";
-import { useConfigurationContext } from "src/hooks/Config";
 import { ListFilterModel } from "src/models/list-filter/filter";
 import { DisplayMode } from "src/models/list-filter/types";
 import { queryFindGalleries, useFindGalleries } from "src/core/StashService";
@@ -42,6 +40,7 @@ import { SidebarRatingFilter } from "../List/Filters/RatingFilter";
 import { SidebarBooleanFilter } from "../List/Filters/BooleanFilter";
 import { OrganizedCriterionOption } from "src/models/list-filter/criteria/organized";
 import { Button } from "react-bootstrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import {
   IListFilterOperation,
   ListOperations,
@@ -64,22 +63,6 @@ const GalleryList: React.FC<{
 }> = PatchComponent(
   "GalleryList",
   ({ galleries, filter, selectedIds, onSelectChange }) => {
-    const { configuration } = useConfigurationContext();
-    const showLightbox = useGalleriesLightbox();
-
-    const onPreview = useCallback(
-      (
-        gallery: GQL.SlimGalleryDataFragment,
-        index: number,
-        ev?: React.MouseEvent
-      ) => {
-        const autostart = configuration?.ui.autostartGallerySlideshow ?? false;
-        showLightbox(gallery, index, true, autostart);
-        ev?.preventDefault();
-      },
-      [showLightbox, configuration?.ui.autostartGallerySlideshow]
-    );
-
     if (galleries.length === 0) {
       return null;
     }
@@ -91,7 +74,6 @@ const GalleryList: React.FC<{
           selectedIds={selectedIds}
           zoomIndex={filter.zoomIndex}
           onSelectChange={onSelectChange}
-          onPreview={onPreview}
         />
       );
     }
@@ -268,6 +250,7 @@ export const FilteredGalleryList = PatchComponent(
   "FilteredGalleryList",
   (props: IGalleryList) => {
     const intl = useIntl();
+    const { isAdmin, canEditMetadata } = useRoleCapabilities();
 
     const searchFocus = useFocus();
 
@@ -328,13 +311,13 @@ export const FilteredGalleryList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -430,16 +413,17 @@ export const FilteredGalleryList = PatchComponent(
       {
         text: `${intl.formatMessage({ id: "actions.generate" })}…`,
         onClick: onGenerate,
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -451,8 +435,8 @@ export const FilteredGalleryList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         operationsMenuClassName="gallery-list-operations-dropdown"
       />
     );
@@ -488,8 +472,8 @@ export const FilteredGalleryList = PatchComponent(
                 listSelect={listSelect}
                 setFilter={setFilter}
                 showEditFilter={showEditFilter}
-                onDelete={onDelete}
-                onEdit={onEdit}
+                onDelete={isAdmin ? onDelete : undefined}
+                onEdit={canEditMetadata ? onEdit : undefined}
                 operationComponent={operations}
                 view={view}
                 zoomable

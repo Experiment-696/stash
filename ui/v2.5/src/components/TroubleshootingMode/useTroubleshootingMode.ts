@@ -4,6 +4,8 @@ import {
   useConfigureGeneral,
   useConfiguration,
 } from "src/core/StashService";
+import * as GQL from "src/core/generated-graphql";
+import { useConfigurationContext } from "src/hooks/Config";
 
 const ORIGINAL_LOG_LEVEL_KEY = "troubleshootingMode_originalLogLevel";
 
@@ -11,12 +13,18 @@ export function useTroubleshootingMode() {
   const [isLoading, setIsLoading] = useState(false);
   const isMounted = useRef(true);
 
-  const { data: config } = useConfiguration();
+  const { configuration: shellConfiguration } = useConfigurationContext();
+  const { data: meData, loading: meLoading } = GQL.useMeQuery({
+    fetchPolicy: "no-cache",
+  });
+  const isAdmin = meData?.me.role === "ADMIN";
+  const { data: config } = useConfiguration(meLoading || !isAdmin);
   const [configureInterface] = useConfigureInterface();
   const [configureGeneral] = useConfigureGeneral();
 
   const isActive =
-    config?.configuration?.interface?.disableCustomizations ?? false;
+    isAdmin &&
+    (shellConfiguration.interface?.disableCustomizations ?? false);
   const currentLogLevel = config?.configuration?.general?.logLevel || "Info";
 
   useEffect(() => {
@@ -79,5 +87,5 @@ export function useTroubleshootingMode() {
     }
   }
 
-  return { isActive, isLoading, enable, disable };
+  return { isActive, isAdmin, isLoading, enable, disable };
 }

@@ -2,7 +2,6 @@ package jsonschema
 
 import (
 	"bytes"
-	gojson "encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -72,10 +71,8 @@ func (f *BaseFile) IsFile() bool {
 }
 
 type Fingerprint struct {
-	Type string `json:"type,omitempty"`
-	// Fingerprint can be string or number, so use RawMessage and unmarshal manually
-	// #6894: if this is interface{}, it is unmarshalled into a float64 which causes precision loss for phash values.
-	Fingerprint gojson.RawMessage `json:"fingerprint,omitempty"`
+	Type        string      `json:"type,omitempty"`
+	Fingerprint interface{} `json:"fingerprint,omitempty"`
 }
 
 type VideoFile struct {

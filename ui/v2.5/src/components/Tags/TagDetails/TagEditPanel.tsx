@@ -24,13 +24,13 @@ import {
   CustomFieldsInput,
   formatCustomFieldInput,
 } from "src/components/Shared/CustomFields";
-import cloneDeep from "lodash-es/cloneDeep";
+import { cloneDeep } from "@apollo/client/utilities";
 
 interface ITagEditPanel {
   tag: Partial<GQL.TagDataFragment>;
   onSubmit: (tag: GQL.TagCreateInput, andNew?: boolean) => Promise<void>;
   onCancel: () => void;
-  onDelete: () => void;
+  onDelete?: () => void;
   setImage: (image?: string | null) => void;
   setEncodingImage: (loading: boolean) => void;
 }

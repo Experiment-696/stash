@@ -192,7 +192,7 @@ export const SceneScrapeDialog: React.FC<ISceneScrapeDialogProps> = ({
     !newStudio
   ) {
     onClose();
-    return null;
+    return <></>;
   }
 
   function makeNewScrapedItem(): GQL.ScrapedSceneDataFragment {

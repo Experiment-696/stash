@@ -12,3 +12,12 @@ query SystemStatus {
     ffprobePath
   }
 }
+
+query MigrationStatus {
+  migrationStatus {
+    status
+    currentSchema
+    requiredSchema
+    backupWillBeCreated
+  }
+}

@@ -1,0 +1,120 @@
+fragment CamModelSiteData on CamModelSite {
+  id
+  name
+  baseURL
+  externalKey
+  enabled
+}
+fragment CamModelEvidenceData on CamModelEvidence {
+  id
+  modelID
+  accountID
+  provider
+  evidenceKey
+  providerRecordID
+  sourceURL
+  observedAt
+  payloadJSON
+  confidence
+  reviewState
+  reviewedBy
+  reviewedAt
+  createdAt
+  updatedAt
+}
+fragment CamModelProfileData on CamModelProfile {
+  id
+  displayName
+  image
+  notes
+  performerID
+  status
+  favorite
+  rating100
+  createdAt
+  updatedAt
+  accounts {
+    id
+    handle
+    status
+    validFrom
+    validTo
+    profileURL
+    externalAccountID
+    firstSeenAt
+    lastSeenAt
+    source
+    confidence
+    site {
+      ...CamModelSiteData
+    }
+  }
+  evidence {
+    ...CamModelEvidenceData
+  }
+  socialProfiles {
+    id
+    modelID
+    platform
+    icon
+    handle
+    profileURL
+    status
+    validFrom
+    validTo
+    source
+    confidence
+    provenance
+  }
+}
+query CamModelProfiles($favoritesOnly: Boolean! = false) {
+  camModelProfiles(favoritesOnly: $favoritesOnly) {
+    ...CamModelProfileData
+  }
+}
+query CamModelProfile($id: ID!) {
+  camModelProfile(id: $id) {
+    ...CamModelProfileData
+  }
+  camModelSites {
+    ...CamModelSiteData
+  }
+}
+mutation CamModelProfileCreate($input: CamModelProfileCreateInput!) {
+  camModelProfileCreate(input: $input) {
+    ...CamModelProfileData
+  }
+}
+mutation CamModelProfileUpdate($input: CamModelProfileUpdateInput!) {
+  camModelProfileUpdate(input: $input) {
+    ...CamModelProfileData
+  }
+}
+mutation CamModelAccountAdd($input: CamModelAccountAddInput!) {
+  camModelAccountAdd(input: $input) {
+    ...CamModelProfileData
+  }
+}
+mutation CamModelAccountRetire($id: ID!, $validTo: Timestamp!) {
+  camModelAccountRetire(id: $id, validTo: $validTo) {
+    ...CamModelProfileData
+  }
+}
+mutation CamModelEvidenceReview($id: ID!, $state: String!) {
+  camModelEvidenceReview(id: $id, state: $state) {
+    ...CamModelEvidenceData
+  }
+}
+
+mutation CamModelSetUserState($id: ID!, $favorite: Boolean!, $rating100: Int) {
+  camModelSetUserState(id: $id, favorite: $favorite, rating100: $rating100) {
+    ...CamModelProfileData
+  }
+}
+
+mutation CamModelSocialProfileCreate($input: CamModelSocialProfileCreateInput!) {
+  camModelSocialProfileCreate(input: $input) { ...CamModelProfileData }
+}
+mutation CamModelSocialProfileRetire($id: ID!, $validTo: Timestamp!) {
+  camModelSocialProfileRetire(id: $id, validTo: $validTo) { ...CamModelProfileData }
+}

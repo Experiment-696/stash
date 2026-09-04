@@ -144,4 +144,24 @@ models:
     fields:
       career_length:
         resolver: true
+      favorite:
+        resolver: true
+      rating100_sum:
+        resolver: true
+      rating100_count:
+        resolver: true
+      rating100_average:
+        resolver: true
+  Image:
+    fields:
+      o_counter:
+        resolver: true
+  Scene:
+    fields:
+      rating100:
+        resolver: true
+      rating100_average:
+        resolver: true
+      rating100_count:
+        resolver: true
   

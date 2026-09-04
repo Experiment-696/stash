@@ -87,6 +87,12 @@ func (j *ScanJob) Execute(ctx context.Context, progress *job.Progress) error {
 		return nil
 	}
 
+	if err := txn.WithTxn(ctx, mgr.Database, func(txCtx context.Context) error {
+		return applyCamClassificationAfterScan(txCtx, mgr.Database.CamShow, c.GetStashPaths().Paths())
+	}); err != nil {
+		return fmt.Errorf("applying Cam Show classification rules after scan: %w", err)
+	}
+
 	elapsed := time.Since(start)
 	logger.Infof("Scan finished (%s)", elapsed)
 
@@ -283,10 +289,8 @@ func (j *ScanJob) processQueue(ctx context.Context, parallelTasks int, progress 
 
 		for f := range j.fileQueue {
 			logger.Tracef("Processing queued file %s", f.Path)
-			if ctx.Err() != nil {
-				// Keep receiving until queueFiles closes the channel; otherwise
-				// the walker can block on send (full buffer) and never finish.
-				continue
+			if err := ctx.Err(); err != nil {
+				return
 			}
 
 			wg.Add()
@@ -381,11 +385,9 @@ func (j *ScanJob) handleFile(ctx context.Context, f file.ScannedFile, progress *
 	// handle rename should have already handled the contents of the zip file
 	// so shouldn't need to scan it again.
 	// Only scan zip contents if the file is new, the fingerprint changed,
-	// if a force rescan was requested, or if the handler was required because
-	// a related object (e.g. a deleted gallery) is missing and needs to be
-	// recreated from the contents.
+	// or if a force rescan was requested.
 
-	if j.scanner.IsZipFile(f.Info.Name()) && (r.New || r.FingerprintChanged || j.scanner.Rescan || r.HandlerRequired) {
+	if j.scanner.IsZipFile(f.Info.Name()) && (r.New || r.FingerprintChanged || j.scanner.Rescan) {
 		ff := r.File
 		f.BaseFile = ff.Base()
 
@@ -592,7 +594,7 @@ func (f *scanFilter) Accept(ctx context.Context, path string, info fs.FileInfo, 
 	}
 
 	// Check .stashignore files, bounded to the library root.
-	if !f.stashIgnoreFilter.Accept(ctx, path, info, f.stashPaths.GetStashRootFromDirPath(path), zipFilePath) {
+	if !f.stashIgnoreFilter.Accept(ctx, path, info, s.Path, zipFilePath) {
 		logger.Debugf("Skipping %s due to .stashignore", path)
 		return false
 	}

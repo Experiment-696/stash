@@ -39,7 +39,15 @@ import {
   faVideo,
 } from "@fortawesome/free-solid-svg-icons";
 import { baseURL } from "src/core/createClient";
+import { csrfHeaders } from "src/core/csrf";
+import { clearAccountSessionCache } from "src/core/StashService";
 import { PatchComponent } from "src/patch";
+import {
+  getTrustedNavItems,
+  insertTrustedNavItems,
+  TrustedNavIcon,
+} from "src/trustedExtensions";
+import * as GQL from "src/core/generated-graphql";
 
 interface IMenuItem {
   name: string;
@@ -167,14 +175,14 @@ const newPathsList = allMenuItems
 
 const MainNavbarMenuItems = PatchComponent(
   "MainNavBar.MenuItems",
-  (props: React.PropsWithChildren<unknown>) => {
+  (props: React.PropsWithChildren<{}>) => {
     return <Nav>{props.children}</Nav>;
   }
 );
 
 const MainNavbarUtilityItems = PatchComponent(
   "MainNavBar.UtilityItems",
-  (props: React.PropsWithChildren<unknown>) => {
+  (props: React.PropsWithChildren<{}>) => {
     return <>{props.children}</>;
   }
 );
@@ -183,6 +191,7 @@ export const MainNavbar: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
   const { configuration } = useConfigurationContext();
+  const { data: meData } = GQL.useMeQuery();
   const { openManual } = React.useContext(ManualStateContext);
 
   const [expanded, setExpanded] = useState(false);
@@ -191,7 +200,10 @@ export const MainNavbar: React.FC = () => {
   const menuItems = useMemo(() => {
     let cfgMenuItems = configuration?.interface.menuItems;
     if (!cfgMenuItems) {
-      return allMenuItems;
+      return insertTrustedNavItems(
+        allMenuItems,
+        getTrustedNavItems(meData?.me.capabilities, cfgMenuItems)
+      );
     }
 
     // translate old movies menu item to groups
@@ -202,24 +214,31 @@ export const MainNavbar: React.FC = () => {
       return item;
     });
 
-    return allMenuItems.filter((menuItem) =>
+    const stockItems = allMenuItems.filter((menuItem) =>
       cfgMenuItems!.includes(menuItem.name)
     );
-  }, [configuration]);
+    return insertTrustedNavItems(
+      stockItems,
+      getTrustedNavItems(meData?.me.capabilities, cfgMenuItems)
+    );
+  }, [configuration, meData?.me.capabilities]);
 
   // react-bootstrap typing bug
   const navbarRef = useRef<HTMLElement | null>(null);
   const intl = useIntl();
 
-  const maybeCollapse = useCallback((event: Event) => {
-    if (
-      navbarRef.current &&
-      event.target instanceof Node &&
-      !navbarRef.current.contains(event.target)
-    ) {
-      setExpanded(false);
-    }
-  }, []);
+  const maybeCollapse = useCallback(
+    (event: Event) => {
+      if (
+        navbarRef.current &&
+        event.target instanceof Node &&
+        !navbarRef.current.contains(event.target)
+      ) {
+        setExpanded(false);
+      }
+    },
+    [setExpanded]
+  );
 
   useEffect(() => {
     if (expanded) {
@@ -245,7 +264,7 @@ export const MainNavbar: React.FC = () => {
   const pathname = location.pathname.replace(/\/$/, "");
   let newPath = newPathsList.includes(pathname) ? `${pathname}/new` : null;
   if (newPath !== null) {
-    const queryParam = new URLSearchParams(location.search).get("q");
+    let queryParam = new URLSearchParams(location.search).get("q");
     if (queryParam) {
       newPath += "?q=" + encodeURIComponent(queryParam);
     }
@@ -257,7 +276,8 @@ export const MainNavbar: React.FC = () => {
     Mousetrap.bind("g z", () => goto("/settings"));
 
     menuItems.forEach((item) => {
-      Mousetrap.bind(item.hotkey, () => goto(item.href));
+      const href = "href" in item ? item.href : item.path;
+      Mousetrap.bind(item.hotkey, () => goto(href));
     });
 
     if (newPath) {
@@ -267,9 +287,7 @@ export const MainNavbar: React.FC = () => {
     return () => {
       Mousetrap.unbind("?");
       Mousetrap.unbind("g z");
-      menuItems.forEach((item) => {
-        Mousetrap.unbind(item.hotkey);
-      });
+      menuItems.forEach((item) => Mousetrap.unbind(item.hotkey));
 
       if (newPath) {
         Mousetrap.unbind("n");
@@ -282,7 +300,23 @@ export const MainNavbar: React.FC = () => {
       return (
         <Button
           className="minimal logout-button d-flex align-items-center"
-          href={`${baseURL}logout`}
+          onClick={async () => {
+            try {
+              const response = await fetch(`${baseURL}logout`, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: csrfHeaders(),
+              });
+              if (!response.ok) {
+                window.alert("Logout failed. Please try again.");
+                return;
+              }
+              await clearAccountSessionCache();
+              window.location.assign(`${baseURL}login`);
+            } catch {
+              window.alert("Logout failed. Please try again.");
+            }
+          }}
           title={intl.formatMessage({ id: "actions.logout" })}
         >
           <Icon icon={faSignOutAlt} />
@@ -291,7 +325,7 @@ export const MainNavbar: React.FC = () => {
     }
   }
 
-  const handleDismiss = useCallback(() => setExpanded(false), []);
+  const handleDismiss = useCallback(() => setExpanded(false), [setExpanded]);
 
   function renderUtilityButtons() {
     return (
@@ -346,68 +380,80 @@ export const MainNavbar: React.FC = () => {
   }
 
   return (
-    <Navbar
-      collapseOnSelect
-      fixed="top"
-      variant="dark"
-      bg="dark"
-      className="top-nav"
-      expand="xl"
-      expanded={expanded}
-      onToggle={setExpanded}
-      ref={navbarRef}
-    >
-      <Navbar.Collapse className="bg-dark order-sm-1">
-        <MainNavbarMenuItems>
-          {menuItems.map(({ href, icon, message }) => (
-            <Nav.Link
-              eventKey={href}
-              as="div"
-              key={href}
-              className="col-4 col-sm-3 col-md-2 col-lg-auto"
-            >
-              <LinkContainer activeClassName="active" exact to={href}>
-                <Button className="minimal p-4 p-xl-2 d-flex d-xl-inline-block flex-column justify-content-between align-items-center">
-                  <Icon
-                    {...{ icon }}
-                    className="nav-menu-icon d-block d-xl-inline mb-2 mb-xl-0"
-                  />
-                  <span>{intl.formatMessage(message)}</span>
+    <>
+      <Navbar
+        collapseOnSelect
+        fixed="top"
+        variant="dark"
+        bg="dark"
+        className="top-nav"
+        expand="xl"
+        expanded={expanded}
+        onToggle={setExpanded}
+        ref={navbarRef}
+      >
+        <Navbar.Collapse className="bg-dark order-sm-1">
+          <MainNavbarMenuItems>
+            {menuItems.map((item) => {
+              const href = "href" in item ? item.href : item.path;
+              const label =
+                "message" in item
+                  ? intl.formatMessage(item.message)
+                  : item.label;
+              return (
+                <Nav.Link
+                  eventKey={href}
+                  as="div"
+                  key={href}
+                  className="col-4 col-sm-3 col-md-2 col-lg-auto"
+                >
+                  <LinkContainer activeClassName="active" exact to={href}>
+                    <Button className="minimal p-4 p-xl-2 d-flex d-xl-inline-block flex-column justify-content-between align-items-center">
+                      <span className="nav-menu-icon d-block d-xl-inline mb-2 mb-xl-0">
+                        {"message" in item ? (
+                          <Icon icon={item.icon} />
+                        ) : (
+                          <TrustedNavIcon item={item} />
+                        )}
+                      </span>
+                      <span>{label}</span>
+                    </Button>
+                  </LinkContainer>
+                </Nav.Link>
+              );
+            })}
+          </MainNavbarMenuItems>
+          <Nav>
+            <MainNavbarUtilityItems>
+              {renderUtilityButtons()}
+            </MainNavbarUtilityItems>
+          </Nav>
+        </Navbar.Collapse>
+
+        <Navbar.Brand as="div" onClick={handleDismiss}>
+          <Link to="/">
+            <Button className="minimal brand-link d-inline-block">Stash</Button>
+          </Link>
+        </Navbar.Brand>
+
+        <Nav className="navbar-buttons flex-row ml-auto order-xl-2">
+          {!!newPath && (
+            <div className="mr-2">
+              <Link to={newPath}>
+                <Button variant="primary">
+                  <FormattedMessage id="new" defaultMessage="New" />
                 </Button>
-              </LinkContainer>
-            </Nav.Link>
-          ))}
-        </MainNavbarMenuItems>
-        <Nav>
+              </Link>
+            </div>
+          )}
           <MainNavbarUtilityItems>
             {renderUtilityButtons()}
           </MainNavbarUtilityItems>
+          <Navbar.Toggle className="nav-menu-toggle ml-sm-2">
+            <Icon icon={expanded ? faTimes : faBars} />
+          </Navbar.Toggle>
         </Nav>
-      </Navbar.Collapse>
-
-      <Navbar.Brand as="div" onClick={handleDismiss}>
-        <Link to="/">
-          <Button className="minimal brand-link d-inline-block">Stash</Button>
-        </Link>
-      </Navbar.Brand>
-
-      <Nav className="navbar-buttons flex-row ml-auto order-xl-2">
-        {!!newPath && (
-          <div className="mr-2">
-            <Link to={newPath}>
-              <Button variant="primary" data-action="new">
-                <FormattedMessage id="new" defaultMessage="New" />
-              </Button>
-            </Link>
-          </div>
-        )}
-        <MainNavbarUtilityItems>
-          {renderUtilityButtons()}
-        </MainNavbarUtilityItems>
-        <Navbar.Toggle className="nav-menu-toggle ml-sm-2">
-          <Icon icon={expanded ? faTimes : faBars} />
-        </Navbar.Toggle>
-      </Nav>
-    </Navbar>
+      </Navbar>
+    </>
   );
 };

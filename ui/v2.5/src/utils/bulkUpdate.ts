@@ -160,8 +160,9 @@ export function getAggregateState<T, U>(
   return newValue;
 }
 
-function setProperty<T, K extends keyof T>(obj: T, key: K, value: unknown) {
-  obj[key] = value as T[K];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setProperty<T, K extends keyof T>(obj: T, key: K, value: any) {
+  obj[key] = value;
 }
 
 function getProperty<T, K extends keyof T>(obj: T, key: K) {
