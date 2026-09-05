@@ -476,8 +476,19 @@ func authenticateHandler() func(http.Handler) http.Handler {
 			authRequired := c.HasCredentials()
 			if !authRequired {
 				if err := mgr.Database.Ready(); err != nil {
-					if !migrationRequest {
+					freshLocalSetup := manager.GetInstance().GetSystemStatus().Status == manager.SystemStatusEnumSetup &&
+						session.IsLocalRequest(r.Context()) && r.URL.Path == gqlEndpoint
+					if !migrationRequest && !freshLocalSetup {
 						http.Error(w, "Database migration is required", http.StatusServiceUnavailable)
+						return
+					}
+					if freshLocalSetup {
+						// A brand-new installation has no database to authenticate
+						// against yet. Permit the loopback GraphQL request through;
+						// field authorization restricts it to bootstrapConfiguration
+						// and setup until Setup creates the database.
+						ctx = context.WithValue(r.Context(), migrationResponseWriterContextKey{}, w)
+						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}
 					// Permit the local browser shell and GraphQL endpoint. The
