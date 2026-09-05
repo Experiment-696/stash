@@ -44,7 +44,7 @@ test("account periods distinguish current and historical usernames", () => {
   );
 });
 
-test("trusted UI preserves review-first identity and all states", () => {
+test("trusted UI exposes direct identity metadata without an evidence queue", () => {
   const page = readFileSync(
     "src/components/CamModels/CamModelsPage.tsx",
     "utf8"
@@ -56,30 +56,24 @@ test("trusted UI preserves review-first identity and all states", () => {
     "No Cam Model profiles yet",
     "Unable to load Cam Models",
     "No site accounts yet",
-    "No provider evidence has been observed",
-    "Approve evidence",
-    "Reject evidence",
     "HISTORICAL",
     "CURRENT",
   ])
     assert.match(page, new RegExp(text));
-  assert.match(page, /does not create accounts or merge profiles/);
-  assert.match(page, /never merges identity\s+automatically/);
+  assert.doesNotMatch(page, /Evidence \(/);
+  assert.doesNotMatch(page, /Approve evidence|Reject evidence|pending review/);
   assert.match(page, /import \{ ExternalLink \}/);
-  assert.equal((page.match(/<ExternalLink href=/g) ?? []).length, 3);
+  assert.equal((page.match(/<ExternalLink href=/g) ?? []).length, 2);
   assert.doesNotMatch(page, /<a[^>]+target="_blank"/);
   assert.match(page, /canManage &&/);
   assert.doesNotMatch(page, /role\s*===\s*["'`]ADMIN/);
   for (const control of [
     "New profile",
-    "Save profile",
-    "Add account",
+    "Save",
+    "Add site alias",
     "Move to history",
-    "Approve evidence",
-    "Reject evidence",
-    "Raw provider evidence",
   ]) {
-    assert.match(page, new RegExp(`canManage[\\s\\S]{0,1200}${control}`));
+    assert.match(page, new RegExp(control));
   }
   assert.match(page, /Sign in with library access/);
   assert.ok(trusted.includes(`path: "/cam-models"`));
@@ -88,7 +82,7 @@ test("trusted UI preserves review-first identity and all states", () => {
   assert.doesNotMatch(page, /PollPresence|startRecording|stopRecording/);
 });
 
-test("CamGirlFinder is Admin-capability gated, cancellable, and pending-only", () => {
+test("CamGirlFinder is Admin-capability gated, cancellable, and applies metadata", () => {
   const page = readFileSync(
     "src/components/CamModels/CamModelsPage.tsx",
     "utf8"
@@ -101,17 +95,17 @@ test("CamGirlFinder is Admin-capability gated, cancellable, and pending-only", (
     "src/components/CamModels/CamGirlFinderSearchCard.tsx",
     "utf8"
   );
-  assert.match(page, /canManage && <CamGirlFinderSearchCard/);
+  assert.match(page.replace(/\s+/g, " "), /canManage && \( <Tab eventKey="finder"/);
   assert.match(search, /new AbortController/);
   assert.ok(search.includes("controller.current?.abort()"));
   const compactSearch = search.replace(/\s+/g, " ");
   for (const text of [
-    "Dry-run search",
-    "No preview results loaded",
+    "Search for this model",
+    "No results loaded",
     "request cancelled",
-    "Preview results",
-    "pending review evidence only",
-    "never profiles, accounts, identity merges, history, online state, or recordings",
+    "Search",
+    "adds the site, alias, and profile link",
+    "profile picture is added",
   ])
     assert.match(compactSearch, new RegExp(text, "i"));
   assert.doesNotMatch(search, /window.confirm/);
@@ -121,13 +115,13 @@ test("CamGirlFinder is Admin-capability gated, cancellable, and pending-only", (
   assert.match(page, /cam-model-archive-social-/);
   assert.match(page, /cam-model-retire-account-/);
   assert.match(search, /CamModelConfirmedAction/);
-  assert.match(search, /pending evidence only/);
-  assert.match(search, /merges identity/);
+  assert.match(search, /Attach selected profiles/);
   assert.match(search, /evidenceKeys: selected/);
   assert.match(candidate, /selected.includes\(item.evidenceKey\)/);
   assert.match(search, /disabled={ingesting \|\| selected.length === 0}/);
   assert.match(search, /rejected with an explicit reason/);
   assert.match(candidate, /ExternalLink/);
+  assert.match(candidate, /item\.imageURL/);
   assert.doesNotMatch(search, /payloadJSON/);
 });
 

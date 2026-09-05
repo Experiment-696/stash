@@ -315,7 +315,7 @@ export const App: React.FC = () => {
             <Route path="/studios" component={Studios} />
             <Route path="/groups" component={Groups} />
             {isTrustedRouteEnabled("/shows", meData?.me.capabilities) && (
-              <Route exact path="/shows" component={ShowsPage} />
+              <Route path="/shows/:id?" component={ShowsPage} />
             )}
             {isTrustedRouteEnabled("/cam-models", meData?.me.capabilities) && (
               <Route path="/cam-models/:id?" component={CamModelsPage} />

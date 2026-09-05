@@ -48,7 +48,7 @@ export const CamGirlFinderSearchCard: React.FC<{
       controller.current = undefined;
     }
   };
-  const addPending = async () => {
+  const applySelected = async () => {
     if (selected.length === 0) {
       setFailure("Select at least one preview candidate.");
       return;
@@ -64,17 +64,18 @@ export const CamGirlFinderSearchCard: React.FC<{
       });
       const ingestOutcomes = result.data?.camGirlFinderIngestPending ?? [];
       setOutcomes(ingestOutcomes);
-      const count = ingestOutcomes.filter((item) => item.evidenceID).length;
+      const count = ingestOutcomes.filter((item) => item.status === "APPLIED").length;
       const rejected = ingestOutcomes.length - count;
+      const pictures = ingestOutcomes.filter((item) => item.imageApplied).length;
       setNotice(
         count +
-          " evidence item" +
+          " site alias" +
           (count === 1 ? "" : "s") +
-          " added or already observed" +
+          " added or updated" +
+          (pictures ? "; profile picture added" : "") +
           (rejected
             ? "; " + rejected + " rejected with an explicit reason"
-            : "") +
-          "; identity metadata was not changed."
+            : "")
       );
       await onIngest();
     } catch (err) {
@@ -87,12 +88,11 @@ export const CamGirlFinderSearchCard: React.FC<{
   };
   return (
     <Card body className="mb-4" data-testid="cam-girl-finder-search">
-      <h2>CamGirlFinder discovery</h2>
+      <h2>Identify with CamGirlFinder</h2>
       <p className="text-muted">
-        Dry-run search previews normalized platform and username evidence. It
-        does not change the database. Adding results creates pending review
-        evidence only—never profiles, accounts, identity merges, history, online
-        state, or recordings.
+        Search for this model, select the matching profile, and apply it. Stash
+        adds the site, alias, and profile link. If this Cam Model has no picture,
+        the selected profile picture is added too.
       </p>
       {failure && <Alert variant="danger">{failure}</Alert>}
       {cancelled && (
@@ -124,7 +124,7 @@ export const CamGirlFinderSearchCard: React.FC<{
               <Spinner size="sm" animation="border" /> Searching…
             </>
           ) : (
-            "Preview results"
+            "Search"
           )}
         </Button>
         {(loading || ingesting) && (
@@ -139,12 +139,12 @@ export const CamGirlFinderSearchCard: React.FC<{
         )}
       </Form>
       {!loading && items.length === 0 && (
-        <p className="mt-3 mb-0 text-muted">No preview results loaded.</p>
+        <p className="mt-3 mb-0 text-muted">No results loaded.</p>
       )}
       {items.length > 0 && (
         <div className="mt-3">
           <p>
-            <strong>{items.length}</strong> normalized preview result
+            <strong>{items.length}</strong> result
             {items.length === 1 ? "" : "s"}
           </p>
           <CamGirlFinderCandidateSelection
@@ -154,27 +154,27 @@ export const CamGirlFinderSearchCard: React.FC<{
           />
           <CamModelConfirmedAction
             testID="cam-girl-finder-apply"
-            title="Add selected CamGirlFinder evidence?"
+            title="Attach selected profiles?"
             description={
               <>
                 <p>
                   Add <strong>{selected.length}</strong> selected candidate
-                  {selected.length === 1 ? "" : "s"} as pending review evidence?
+                  {selected.length === 1 ? "" : "s"} to this Cam Model?
                 </p>
                 <p className="mb-0">
-                  This creates pending evidence only. It never creates accounts,
-                  merges identity, or changes identity metadata automatically.
+                  This adds each selected site account and alias. A profile
+                  picture is added only when the Cam Model does not have one.
                 </p>
               </>
             }
-            confirmLabel={"Add " + selected.length + " as pending evidence"}
+            confirmLabel={"Attach " + selected.length + " selected"}
             triggerLabel={
               ingesting
-                ? "Adding pending evidence…"
-                : "Add " + selected.length + " selected as pending evidence"
+                ? "Applying metadata…"
+                : "Attach " + selected.length + " selected"
             }
             disabled={ingesting || selected.length === 0}
-            onConfirm={addPending}
+            onConfirm={applySelected}
           />
         </div>
       )}

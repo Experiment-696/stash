@@ -20,6 +20,7 @@ mutation CamGirlFinderSearch($query: String!) {
     platform
     username
     sourceURL
+    imageURL
     observedAt
     payloadJSON
   }
@@ -32,5 +33,6 @@ mutation CamGirlFinderIngestPending($modelID: ID!, $query: String!, $evidenceKey
     status
     disposition
     reason
+    imageApplied
   }
 }

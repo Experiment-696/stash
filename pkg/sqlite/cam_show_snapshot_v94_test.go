@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/cammodel"
 	"github.com/stashapp/stash/pkg/models"
@@ -40,7 +41,16 @@ func TestCamSnapshotV94CompletedImportAuditRoundTripRollbackAndIdempotency(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := source.CamShow.CreateShow(setup, int64(scene.ID), "LIVE", nil); err != nil {
+	show, err := source.CamShow.CreateShow(setup, int64(scene.ID), "LIVE", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, err := source.User.Create(setup, "snapshot-rater", "password", authz.RoleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rating := 83
+	if err := source.CamShow.SetShowRating(setup, user.ID, show.ID, &rating); err != nil {
 		t.Fatal(err)
 	}
 	if err := source.Commit(setup); err != nil {
@@ -64,8 +74,9 @@ func TestCamSnapshotV94CompletedImportAuditRoundTripRollbackAndIdempotency(t *te
 	if err := source.Commit(read); err != nil {
 		t.Fatal(err)
 	}
-	if snapshot.SchemaVersion != 94 || camSnapshotRowCount(t, snapshot, "cam_completed_recording_imports") != 1 ||
-		camSnapshotRowCount(t, snapshot, "cam_completed_recording_audits") != 1 {
+	if snapshot.SchemaVersion != 97 || camSnapshotRowCount(t, snapshot, "cam_completed_recording_imports") != 1 ||
+		camSnapshotRowCount(t, snapshot, "cam_completed_recording_audits") != 1 ||
+		camSnapshotRowCount(t, snapshot, "cam_show_user_state") != 1 {
 		t.Fatalf("snapshot version/tables=%#v", snapshot)
 	}
 
@@ -76,6 +87,9 @@ func TestCamSnapshotV94CompletedImportAuditRoundTripRollbackAndIdempotency(t *te
 	}
 	targetScene := &models.Scene{CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
 	if err := target.Scene.Create(tx, targetScene, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := target.User.Create(tx, "snapshot-rater", "password", authz.RoleUser); err != nil {
 		t.Fatal(err)
 	}
 	encoded, _ := json.Marshal(snapshot)

@@ -51,6 +51,9 @@ type SceneFilterType struct {
 	Organized *bool `json:"organized"`
 	// Filter by o-counter
 	OCounter *IntCriterionInput `json:"o_counter"`
+	// Exclude Scenes that are already classified as Cam Shows from ordinary
+	// Scene library queries. Direct Scene lookup remains unaffected.
+	ExcludeCamShows *bool `json:"exclude_cam_shows"`
 	// Filter Scenes by duplication criteria
 	Duplicated *DuplicationCriterionInput `json:"duplicated"`
 	// Filter by resolution

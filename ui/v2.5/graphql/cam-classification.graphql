@@ -11,11 +11,32 @@ query CamShows($sort: CamShowSortMode! = DEFAULT) {
     durationSeconds
     durationOverridden
     durationOverrideReason
-    details
-    tags { id name }
-    sites { id name icon }
-    links { id linkType url label }
-    models { modelID displayName role }
+    rate
+    extras
+    request
+    rating100
+    rating100Average
+    rating100Count
+    tags {
+      id
+      name
+    }
+    sites {
+      id
+      name
+      icon
+    }
+    links {
+      id
+      linkType
+      url
+      label
+    }
+    models {
+      modelID
+      displayName
+      role
+    }
   }
 }
 query CamClassificationRules {
@@ -27,7 +48,10 @@ query CamClassificationRules {
     category
     enabled
     tagIDs
-    tags { id name }
+    tags {
+      id
+      name
+    }
     createdAt
     updatedAt
   }
@@ -60,7 +84,10 @@ mutation CamClassificationRuleCreate(
     category
     enabled
     tagIDs
-    tags { id name }
+    tags {
+      id
+      name
+    }
   }
 }
 mutation CamClassificationRuleUpdate(
@@ -74,7 +101,10 @@ mutation CamClassificationRuleUpdate(
     category
     enabled
     tagIDs
-    tags { id name }
+    tags {
+      id
+      name
+    }
   }
 }
 mutation CamClassificationRuleSetEnabled($id: ID!, $enabled: Boolean!) {
@@ -100,7 +130,80 @@ mutation CamClassificationApply {
 
 mutation CamShowUpdate($input: CamShowCoreUpdateInput!) {
   camShowUpdate(input: $input) {
-    id sceneID title showType showDate capturedAt capturedTimezone capturedPrecision durationSeconds durationOverridden durationOverrideReason details
-    tags { id name } sites { id name icon } links { id linkType url label } models { modelID displayName role }
+    id
+    sceneID
+    title
+    showType
+    showDate
+    capturedAt
+    capturedTimezone
+    capturedPrecision
+    durationSeconds
+    durationOverridden
+    durationOverrideReason
+    rate
+    extras
+    request
+    rating100
+    rating100Average
+    rating100Count
+    tags {
+      id
+      name
+    }
+    sites {
+      id
+      name
+      icon
+    }
+    links {
+      id
+      linkType
+      url
+      label
+    }
+    models {
+      modelID
+      displayName
+      role
+    }
+  }
+}
+
+query CamShowAssociationOptions {
+  camModelSites {
+    id
+    name
+    enabled
+  }
+  camModelProfiles {
+    id
+    displayName
+    status
+  }
+}
+
+mutation CamShowSetAssociations($input: CamShowAssociationsInput!) {
+  camShowSetAssociations(input: $input) {
+    id
+    sites {
+      id
+      name
+      icon
+    }
+    models {
+      modelID
+      displayName
+      role
+    }
+  }
+}
+
+mutation CamShowSetRating($id: ID!, $rating100: Int) {
+  camShowSetRating(id: $id, rating100: $rating100) {
+    id
+    rating100
+    rating100Average
+    rating100Count
   }
 }

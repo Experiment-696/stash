@@ -21,6 +21,7 @@
     "test:account-cache": "node --loader ts-node/esm/transpile-only --test src/core/accountCache.test.ts",
     "test:homepage-preference": "node --loader ts-node/esm/transpile-only --test src/core/homepagePreference.test.ts",
     "test:theme-preference": "node --loader ts-node/esm/transpile-only --test src/core/themePreference.test.ts",
+    "test:cam-show-separation": "node --loader ts-node/esm/transpile-only --test src/core/camShowSeparation.test.ts",
     "format": "prettier --write . ../../graphql",
     "format-check": "prettier --check . ../../graphql",
     "gqlgen": "gql-gen --config codegen.ts",

@@ -132,6 +132,12 @@ type modelResult struct {
 	Persons   json.RawMessage `json:"persons"`
 	Schedule  json.RawMessage `json:"schedule"`
 }
+type modelPerson struct {
+	Person int64 `json:"person"`
+	URLs   struct {
+		FaceImage string `json:"faceImage"`
+	} `json:"urls"`
+}
 type evidencePayload struct {
 	Platform        string    `json:"platform"`
 	Name            string    `json:"name"`
@@ -201,7 +207,20 @@ func (c *Client) Discover(ctx context.Context, query string) ([]cammodel.Profile
 		}
 		sum := sha256.Sum256([]byte(strings.Join([]string{result.Platform, result.Name, result.FirstSeen.UTC().Format(time.RFC3339Nano), result.LastSeen.UTC().Format(time.RFC3339Nano)}, "\x00")))
 		source := result.URLs.ExternalProfile
-		observations = append(observations, cammodel.ProfileObservation{Provider: ProviderKey, EvidenceKey: hex.EncodeToString(sum[:]), Platform: result.Platform, Username: result.Name, SourceURL: &source, ObservedAt: result.LastSeen.UTC(), PayloadJSON: string(payload)})
+		var people []modelPerson
+		if len(result.Persons) > 0 && string(result.Persons) != "null" {
+			if err := json.Unmarshal(result.Persons, &people); err != nil {
+				return nil, fmt.Errorf("%w: invalid persons list", ErrMalformedResponse)
+			}
+		}
+		var imageURL *string
+		for _, person := range people {
+			if value := strings.TrimSpace(person.URLs.FaceImage); value != "" {
+				imageURL = &value
+				break
+			}
+		}
+		observations = append(observations, cammodel.ProfileObservation{Provider: ProviderKey, EvidenceKey: hex.EncodeToString(sum[:]), Platform: result.Platform, Username: result.Name, SourceURL: &source, ImageURL: imageURL, ObservedAt: result.LastSeen.UTC(), PayloadJSON: string(payload)})
 	}
 	return observations, nil
 }

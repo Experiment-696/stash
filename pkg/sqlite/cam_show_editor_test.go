@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/models"
 )
@@ -35,10 +36,27 @@ func TestCamShowEditorAndSocialProfileValidationAndRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	details, zone, precision := "owner notes", "America/Los_Angeles", "MINUTE"
-	updated, err := db.CamShow.UpdateShowCore(ctx, CamShowCoreUpdateInput{ID: show.ID, Title: "Owner Show", ShowType: "LIVE_PRIVATE", CapturedTimezone: &zone, CapturedPrecision: &precision, Details: &details})
-	if err != nil || updated.Title != "Owner Show" || updated.ShowType != "LIVE_PRIVATE" {
+	extras, request, zone, precision := "toy included", "custom request", "America/Los_Angeles", "MINUTE"
+	rate := 12.50
+	updated, err := db.CamShow.UpdateShowCore(ctx, CamShowCoreUpdateInput{ID: show.ID, Title: "Owner Show", ShowType: "LIVE_PRIVATE", CapturedTimezone: &zone, CapturedPrecision: &precision, Rate: &rate, Extras: &extras, Request: &request})
+	if err != nil || updated.Title != "Owner Show" || updated.ShowType != "LIVE_PRIVATE" || updated.Rate == nil || *updated.Rate != rate || updated.Extras == nil || *updated.Extras != extras || updated.Request == nil || *updated.Request != request {
 		t.Fatalf("updated=%+v err=%v", updated, err)
+	}
+	negativeRate := -1.0
+	if _, err := db.CamShow.UpdateShowCore(ctx, CamShowCoreUpdateInput{ID: show.ID, Title: "bad", ShowType: "LIVE_PRIVATE", Rate: &negativeRate}); err == nil || err.Error() != "rate cannot be negative" {
+		t.Fatalf("negative rate accepted: %v", err)
+	}
+	user, err := db.User.Create(ctx, "show-rater", "password", authz.RoleUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rating := 87
+	if err := db.CamShow.SetShowRating(ctx, user.ID, show.ID, &rating); err != nil {
+		t.Fatal(err)
+	}
+	personal, err := db.CamShow.ListShowDomainForUser(ctx, user.ID, false)
+	if err != nil || len(personal) != 1 || personal[0].Rating100 == nil || *personal[0].Rating100 != rating || personal[0].Rating100Average != float64(rating) || personal[0].Rating100Count != 1 {
+		t.Fatalf("personal Show rating=%+v err=%v", personal, err)
 	}
 	seconds := 12.0
 	badPrecision := "WEEK"

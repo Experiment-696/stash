@@ -189,6 +189,8 @@ func TestCamSnapshotCompatibilityContract(t *testing.T) {
 		91: "cam_model_profile_provenance",
 		92: "cam_model_social_profiles",
 		94: "cam_completed_recording_audits",
+		96: "cam_show_user_state",
+		97: "cam_show_user_state",
 	}
 	if len(camSnapshotCompatibility) != len(wantLast) {
 		t.Fatalf("compatibility boundaries=%+v", camSnapshotCompatibility)

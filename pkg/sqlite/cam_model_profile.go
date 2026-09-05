@@ -64,12 +64,12 @@ type CamModelProfileProvenance struct {
 }
 
 type CamModelProfile struct {
-	Model      CamModel
-	Accounts   []CamModelProfileAccount
-	Aliases    []CamModelAlias
-	Provenance []CamModelProfileProvenance
+	Model          CamModel
+	Accounts       []CamModelProfileAccount
+	Aliases        []CamModelAlias
+	Provenance     []CamModelProfileProvenance
 	SocialProfiles []CamModelSocialProfile
-	UserState  *CamModelUserState
+	UserState      *CamModelUserState
 }
 
 type CamModelAccountInput struct {
@@ -247,6 +247,8 @@ type CamModelProfileUpdateInput struct {
 	DisplayName string
 	Image       *string
 	Notes       *string
+	Location    *string
+	Age         *int
 	PerformerID *int64
 	Status      string
 }
@@ -256,7 +258,10 @@ func (s *CamShowStore) UpdateModelProfile(ctx context.Context, input CamModelPro
 	if input.ID <= 0 || input.DisplayName == "" || (input.Status != "ACTIVE" && input.Status != "INACTIVE" && input.Status != "UNKNOWN") {
 		return nil, errors.New("valid model, display name, and status are required")
 	}
-	result, err := dbWrapper.Exec(ctx, `UPDATE cam_models SET display_name=?,image=?,notes=?,performer_id=?,status=?,updated_at=? WHERE id=?`, input.DisplayName, input.Image, input.Notes, input.PerformerID, input.Status, time.Now().UTC(), input.ID)
+	if input.Age != nil && (*input.Age < 18 || *input.Age > 120) {
+		return nil, errors.New("age must be between 18 and 120")
+	}
+	result, err := dbWrapper.Exec(ctx, `UPDATE cam_models SET display_name=?,image=?,notes=?,location=?,age=?,performer_id=?,status=?,updated_at=? WHERE id=?`, input.DisplayName, input.Image, input.Notes, cleanScrapedText(input.Location), input.Age, input.PerformerID, input.Status, time.Now().UTC(), input.ID)
 	if err := requireOneRow(result, err); err != nil {
 		return nil, err
 	}
@@ -332,7 +337,9 @@ func (s *CamShowStore) FindModelProfile(ctx context.Context, modelID int64) (*Ca
 		return nil, err
 	}
 	err = dbWrapper.Select(ctx, &ret.Provenance, `SELECT id,model_id,account_id,provider,evidence_key,provider_record_id,source_url,observed_at,payload_json,confidence,review_state,reviewed_by,reviewed_at,created_at,updated_at FROM cam_model_profile_provenance WHERE model_id=? ORDER BY observed_at,id`, modelID)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	ret.SocialProfiles, err = s.ListModelSocialProfiles(ctx, modelID)
 	return ret, err
 }

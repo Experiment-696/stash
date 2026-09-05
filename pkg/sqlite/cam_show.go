@@ -17,6 +17,7 @@ type CamSite struct {
 	Name        string    `db:"name"`
 	BaseURL     *string   `db:"base_url"`
 	ExternalKey *string   `db:"external_key"`
+	Icon        *string   `db:"icon"`
 	Enabled     bool      `db:"enabled"`
 	CreatedAt   time.Time `db:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at"`
@@ -26,6 +27,8 @@ type CamModel struct {
 	DisplayName string    `db:"display_name"`
 	Image       *string   `db:"image"`
 	Notes       *string   `db:"notes"`
+	Location    *string   `db:"location"`
+	Age         *int      `db:"age"`
 	PerformerID *int64    `db:"performer_id"`
 	Status      string    `db:"status"`
 	CreatedAt   time.Time `db:"created_at"`
@@ -98,24 +101,35 @@ func normalizeCamIdentity(value string) string {
 }
 
 func (s *CamShowStore) CreateSite(ctx context.Context, name string, baseURL, externalKey *string) (*CamSite, error) {
+	return s.SaveSite(ctx, nil, name, baseURL, externalKey, nil, true)
+}
+
+func (s *CamShowStore) SaveSite(ctx context.Context, id *int64, name string, baseURL, externalKey, icon *string, enabled bool) (*CamSite, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, errors.New("site name is required")
 	}
 	now := time.Now().UTC()
-	result, err := dbWrapper.Exec(ctx, `INSERT INTO cam_sites(name,base_url,external_key,enabled,created_at,updated_at) VALUES(?,?,?,1,?,?)`, name, baseURL, externalKey, now, now)
+	if id != nil {
+		result, err := dbWrapper.Exec(ctx, `UPDATE cam_sites SET name=?,base_url=?,external_key=?,icon=?,enabled=?,updated_at=? WHERE id=?`, name, baseURL, externalKey, icon, enabled, now, *id)
+		if err := requireOneRow(result, err); err != nil {
+			return nil, err
+		}
+		return s.FindSite(ctx, *id)
+	}
+	result, err := dbWrapper.Exec(ctx, `INSERT INTO cam_sites(name,base_url,external_key,icon,enabled,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`, name, baseURL, externalKey, icon, enabled, now, now)
 	if err != nil {
 		return nil, err
 	}
-	id, err := result.LastInsertId()
+	newID, err := result.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
-	return s.FindSite(ctx, id)
+	return s.FindSite(ctx, newID)
 }
 func (s *CamShowStore) FindSite(ctx context.Context, id int64) (*CamSite, error) {
 	var v CamSite
-	err := dbWrapper.Get(ctx, &v, `SELECT id,name,base_url,external_key,enabled,created_at,updated_at FROM cam_sites WHERE id=?`, id)
+	err := dbWrapper.Get(ctx, &v, `SELECT id,name,base_url,external_key,icon,enabled,created_at,updated_at FROM cam_sites WHERE id=?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -139,7 +153,7 @@ func (s *CamShowStore) CreateModel(ctx context.Context, name string, performerID
 }
 func (s *CamShowStore) FindModel(ctx context.Context, id int64) (*CamModel, error) {
 	var v CamModel
-	err := dbWrapper.Get(ctx, &v, `SELECT id,display_name,image,notes,performer_id,status,created_at,updated_at FROM cam_models WHERE id=?`, id)
+	err := dbWrapper.Get(ctx, &v, `SELECT id,display_name,image,notes,location,age,performer_id,status,created_at,updated_at FROM cam_models WHERE id=?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -391,12 +405,12 @@ func sameIntPointer(a, b *int) bool {
 
 func (s *CamShowStore) ListSites(ctx context.Context) ([]CamSite, error) {
 	var values []CamSite
-	err := dbWrapper.Select(ctx, &values, `SELECT id,name,base_url,external_key,enabled,created_at,updated_at FROM cam_sites ORDER BY name COLLATE NOCASE,id`)
+	err := dbWrapper.Select(ctx, &values, `SELECT id,name,base_url,external_key,icon,enabled,created_at,updated_at FROM cam_sites ORDER BY name COLLATE NOCASE,id`)
 	return values, err
 }
 func (s *CamShowStore) ListModels(ctx context.Context) ([]CamModel, error) {
 	var values []CamModel
-	err := dbWrapper.Select(ctx, &values, `SELECT id,display_name,image,notes,performer_id,status,created_at,updated_at FROM cam_models ORDER BY display_name COLLATE NOCASE,id`)
+	err := dbWrapper.Select(ctx, &values, `SELECT id,display_name,image,notes,location,age,performer_id,status,created_at,updated_at FROM cam_models ORDER BY display_name COLLATE NOCASE,id`)
 	return values, err
 }
 func (s *CamShowStore) ListShows(ctx context.Context) ([]CamShow, error) {

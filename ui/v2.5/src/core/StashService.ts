@@ -18,6 +18,7 @@ import { createClient } from "./createClient";
 import { Client } from "graphql-ws";
 import { useEffect, useState } from "react";
 import { clearNormalizedAccountCache } from "./accountCache";
+import { excludeCamShowsFromSceneLibrary } from "./camShowSeparation";
 
 const { client, wsClient, cache: clientCache } = createClient();
 
@@ -154,7 +155,7 @@ export const useFindScenes = (filter?: ListFilterModel) =>
     skip: filter === undefined,
     variables: {
       filter: filter?.makeFindFilter(),
-      scene_filter: filter?.makeFilter(),
+      scene_filter: excludeCamShowsFromSceneLibrary(filter?.makeFilter()),
     },
   });
 
@@ -163,7 +164,7 @@ export const queryFindScenes = (filter: ListFilterModel) =>
     query: GQL.FindScenesDocument,
     variables: {
       filter: filter.makeFindFilter(),
-      scene_filter: filter.makeFilter(),
+      scene_filter: excludeCamShowsFromSceneLibrary(filter.makeFilter()),
     },
   });
 
@@ -188,7 +189,7 @@ export const queryFindScenesForSelect = (filter: ListFilterModel) =>
     query: GQL.FindScenesForSelectDocument,
     variables: {
       filter: filter.makeFindFilter(),
-      scene_filter: filter.makeFilter(),
+      scene_filter: excludeCamShowsFromSceneLibrary(filter.makeFilter()),
     },
   });
 

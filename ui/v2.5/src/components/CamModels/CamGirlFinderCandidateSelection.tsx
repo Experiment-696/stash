@@ -11,6 +11,14 @@ export const CamGirlFinderCandidateSelection: React.FC<{
   <>
     {items.map((item) => (
       <Card body className="mb-2" key={item.evidenceKey}>
+        {item.imageURL && (
+          <img
+            src={item.imageURL}
+            alt=""
+            className="mr-3"
+            style={{ width: 72, height: 72, objectFit: "cover" }}
+          />
+        )}
         <Form.Check
           inline
           type="checkbox"
@@ -33,7 +41,7 @@ export const CamGirlFinderCandidateSelection: React.FC<{
         <div>Observed {new Date(item.observedAt).toLocaleString()}</div>
         {item.sourceURL && (
           <ExternalLink href={item.sourceURL}>
-            Open source evidence
+            Open profile
           </ExternalLink>
         )}
       </Card>

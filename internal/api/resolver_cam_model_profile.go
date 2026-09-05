@@ -84,7 +84,7 @@ func camAccountInput(modelID int64, input *CamModelAccountCreateInput) (sqlite.C
 	return sqlite.CamModelAccountInput{ModelID: modelID, SiteID: siteID, Handle: input.Handle, ProfileURL: input.ProfileURL, ExternalAccountID: input.ExternalAccountID, FirstSeenAt: input.FirstSeenAt, LastSeenAt: input.LastSeenAt, ValidFrom: input.ValidFrom, Confidence: input.Confidence}, nil
 }
 func camSiteModel(v sqlite.CamSite) *CamModelSite {
-	return &CamModelSite{ID: strconv.FormatInt(v.ID, 10), Name: v.Name, BaseURL: v.BaseURL, ExternalKey: v.ExternalKey, Enabled: v.Enabled}
+	return &CamModelSite{ID: strconv.FormatInt(v.ID, 10), Name: v.Name, BaseURL: v.BaseURL, ExternalKey: v.ExternalKey, Icon: v.Icon, Enabled: v.Enabled}
 }
 func camEvidenceModel(v sqlite.CamModelProfileProvenance, includeSensitive bool) *CamModelEvidence {
 	var accountID, reviewedBy *string
@@ -103,6 +103,31 @@ func camEvidenceModel(v sqlite.CamModelProfileProvenance, includeSensitive bool)
 	}
 	return ret
 }
+
+func (r *mutationResolver) CamModelSiteSave(ctx context.Context, input CamModelSiteSaveInput) (*CamModelSite, error) {
+	var id *int64
+	if input.ID != nil {
+		parsed, err := parseCamID(*input.ID)
+		if err != nil {
+			return nil, err
+		}
+		id = &parsed
+	}
+	db := r.tokenDatabase()
+	var site *sqlite.CamSite
+	err := txn.WithTxn(ctx, db, func(txCtx context.Context) error {
+		if _, err := requirePersistedCamModelAdmin(ctx, txCtx, db); err != nil {
+			return err
+		}
+		var err error
+		site, err = db.CamShow.SaveSite(txCtx, id, input.Name, input.BaseURL, input.ExternalKey, input.Icon, input.Enabled)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return camSiteModel(*site), nil
+}
 func camProfileModel(v *sqlite.CamModelProfile, includeSensitive bool) *CamModelProfile {
 	var performerID *string
 	if v.Model.PerformerID != nil {
@@ -114,7 +139,7 @@ func camProfileModel(v *sqlite.CamModelProfile, includeSensitive bool) *CamModel
 	if v.UserState != nil {
 		favorite, rating = v.UserState.Favorite, v.UserState.Rating
 	}
-	ret := &CamModelProfile{Favorite: favorite, Rating100: rating, ID: strconv.FormatInt(v.Model.ID, 10), DisplayName: v.Model.DisplayName, Image: v.Model.Image, Notes: v.Model.Notes, PerformerID: performerID, Status: v.Model.Status, CreatedAt: v.Model.CreatedAt, UpdatedAt: v.Model.UpdatedAt, Accounts: make([]*CamModelAccountProfile, len(v.Accounts)), Evidence: make([]*CamModelEvidence, len(v.Provenance)), SocialProfiles: make([]*CamModelSocialProfile, len(v.SocialProfiles))}
+	ret := &CamModelProfile{Favorite: favorite, Rating100: rating, ID: strconv.FormatInt(v.Model.ID, 10), DisplayName: v.Model.DisplayName, Image: v.Model.Image, Notes: v.Model.Notes, Location: v.Model.Location, Age: v.Model.Age, PerformerID: performerID, Status: v.Model.Status, CreatedAt: v.Model.CreatedAt, UpdatedAt: v.Model.UpdatedAt, Accounts: make([]*CamModelAccountProfile, len(v.Accounts)), Evidence: make([]*CamModelEvidence, len(v.Provenance)), SocialProfiles: make([]*CamModelSocialProfile, len(v.SocialProfiles))}
 	for i, a := range v.Accounts {
 		ret.Accounts[i] = &CamModelAccountProfile{ID: strconv.FormatInt(a.ID, 10), Site: &CamModelSite{ID: strconv.FormatInt(a.SiteID, 10), Name: a.SiteName, BaseURL: a.SiteBaseURL, ExternalKey: a.SiteExternalKey, Enabled: a.SiteEnabled}, Handle: a.Handle, Status: a.Status, ValidFrom: a.ValidFrom, ValidTo: a.ValidTo, ProfileURL: a.ProfileURL, FirstSeenAt: a.FirstSeenAt, LastSeenAt: a.LastSeenAt, Source: a.Source, Confidence: a.Confidence}
 		if includeSensitive {
@@ -244,7 +269,7 @@ func (r *mutationResolver) CamModelProfileUpdate(ctx context.Context, input CamM
 		if authErr != nil {
 			return authErr
 		}
-		p, e = svc.Update(txCtx, sqlite.CamModelProfileUpdateInput{ID: id, DisplayName: input.DisplayName, Image: input.Image, Notes: input.Notes, PerformerID: performerID, Status: input.Status})
+		p, e = svc.Update(txCtx, sqlite.CamModelProfileUpdateInput{ID: id, DisplayName: input.DisplayName, Image: input.Image, Notes: input.Notes, Location: input.Location, Age: input.Age, PerformerID: performerID, Status: input.Status})
 		if e != nil {
 			return e
 		}

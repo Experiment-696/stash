@@ -83,7 +83,9 @@ type CamShowCoreUpdateInput struct {
 	ShowDate, CapturedAt                *time.Time
 	CapturedTimezone, CapturedPrecision *string
 	DurationOverrideSeconds             *float64
-	DurationOverrideReason, Details     *string
+	DurationOverrideReason              *string
+	Rate                                *float64
+	Extras, Request                     *string
 }
 
 func (s *CamShowStore) UpdateShowCore(ctx context.Context, in CamShowCoreUpdateInput) (*CamShowDomainItem, error) {
@@ -99,6 +101,9 @@ func (s *CamShowStore) UpdateShowCore(ctx context.Context, in CamShowCoreUpdateI
 	if in.DurationOverrideSeconds != nil && (in.DurationOverrideReason == nil || strings.TrimSpace(*in.DurationOverrideReason) == "") {
 		return nil, errors.New("duration override reason is required")
 	}
+	if in.Rate != nil && *in.Rate < 0 {
+		return nil, errors.New("rate cannot be negative")
+	}
 	if in.CapturedTimezone != nil && strings.TrimSpace(*in.CapturedTimezone) != "" {
 		if _, e := time.LoadLocation(*in.CapturedTimezone); e != nil {
 			return nil, errors.New("captured timezone is invalid")
@@ -111,7 +116,7 @@ func (s *CamShowStore) UpdateShowCore(ctx context.Context, in CamShowCoreUpdateI
 			return nil, errors.New("captured precision is invalid")
 		}
 	}
-	r, e := dbWrapper.Exec(ctx, "UPDATE cam_shows SET title_override=?,show_type=?,show_date=?,captured_at=?,captured_timezone=?,captured_precision=?,duration_override_seconds=?,duration_override_reason=?,notes=?,updated_at=? WHERE id=?", in.Title, in.ShowType, in.ShowDate, in.CapturedAt, in.CapturedTimezone, in.CapturedPrecision, in.DurationOverrideSeconds, in.DurationOverrideReason, in.Details, time.Now().UTC(), in.ID)
+	r, e := dbWrapper.Exec(ctx, "UPDATE cam_shows SET title_override=?,show_type=?,show_date=?,captured_at=?,captured_timezone=?,captured_precision=?,duration_override_seconds=?,duration_override_reason=?,rate=?,extras=?,request=?,updated_at=? WHERE id=?", in.Title, in.ShowType, in.ShowDate, in.CapturedAt, in.CapturedTimezone, in.CapturedPrecision, in.DurationOverrideSeconds, in.DurationOverrideReason, in.Rate, in.Extras, in.Request, time.Now().UTC(), in.ID)
 	if e := requireOneRow(r, e); e != nil {
 		return nil, e
 	}
@@ -125,4 +130,20 @@ func (s *CamShowStore) UpdateShowCore(ctx context.Context, in CamShowCoreUpdateI
 		}
 	}
 	return nil, errors.New("updated Show not found")
+}
+
+func (s *CamShowStore) SetShowRating(ctx context.Context, userID, showID int64, rating *int) error {
+	if userID <= 0 || showID <= 0 {
+		return errors.New("persisted user and Show are required")
+	}
+	if rating != nil && (*rating < 1 || *rating > 100) {
+		return errors.New("rating must be between 1 and 100")
+	}
+	if rating == nil {
+		_, e := dbWrapper.Exec(ctx, "DELETE FROM cam_show_user_state WHERE user_id=? AND show_id=?", userID, showID)
+		return e
+	}
+	_, e := dbWrapper.Exec(ctx, `INSERT INTO cam_show_user_state(user_id,show_id,rating,updated_at)
+		VALUES(?,?,?,?) ON CONFLICT(user_id,show_id) DO UPDATE SET rating=excluded.rating,updated_at=excluded.updated_at`, userID, showID, *rating, time.Now().UTC())
+	return e
 }

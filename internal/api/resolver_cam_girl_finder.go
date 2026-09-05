@@ -47,7 +47,7 @@ func candidateModel(o cammodel.ProfileObservation) *CamGirlFinderCandidate {
 	if o.SourceURL != nil {
 		source = *o.SourceURL
 	}
-	return &CamGirlFinderCandidate{EvidenceKey: o.EvidenceKey, Platform: o.Platform, Username: o.Username, SourceURL: source, ObservedAt: o.ObservedAt, PayloadJSON: o.PayloadJSON}
+	return &CamGirlFinderCandidate{EvidenceKey: o.EvidenceKey, Platform: o.Platform, Username: o.Username, SourceURL: source, ImageURL: o.ImageURL, ObservedAt: o.ObservedAt, PayloadJSON: o.PayloadJSON}
 }
 func (r *mutationResolver) CamGirlFinderSearch(ctx context.Context, query string) ([]*CamGirlFinderCandidate, error) {
 	db := r.tokenDatabase()
@@ -112,7 +112,7 @@ func persistCamGirlFinderPending(ctx context.Context, db *sqlite.Database, actor
 	}
 	ret := make([]*CamGirlFinderIngestResult, 0, len(selected))
 	for _, observation := range selected {
-		value, err := db.CamShow.IngestDiscoveryReview(ctx, modelID, observation)
+		value, err := db.CamShow.ApplyDiscoveryMetadata(ctx, modelID, observation)
 		if errors.Is(err, sqlite.ErrCamModelDiscoverySite) {
 			reason := err.Error()
 			ret = append(ret, &CamGirlFinderIngestResult{EvidenceKey: observation.EvidenceKey, Status: "REJECTED", Reason: &reason})
@@ -121,11 +121,9 @@ func persistCamGirlFinderPending(ctx context.Context, db *sqlite.Database, actor
 		if err != nil {
 			return nil, err
 		}
-		evidenceID := strconv.FormatInt(value.EvidenceID, 10)
-		changeID := strconv.FormatInt(value.ChangeID, 10)
 		disposition := value.Disposition
-		ret = append(ret, &CamGirlFinderIngestResult{EvidenceKey: observation.EvidenceKey, EvidenceID: &evidenceID, ChangeID: &changeID, Status: string(value.EvidenceStatus), Disposition: &disposition})
-		if err := recordCamAudit(ctx, db, actorID, camAuditDiscoveryIngested, "cam_sync_change", value.ChangeID, string(value.EvidenceStatus)); err != nil {
+		ret = append(ret, &CamGirlFinderIngestResult{EvidenceKey: observation.EvidenceKey, Status: "APPLIED", Disposition: &disposition, ImageApplied: value.ImageApplied})
+		if err := recordCamAudit(ctx, db, actorID, camAuditDiscoveryIngested, "cam_model_account", value.AccountID, "APPLIED"); err != nil {
 			return nil, err
 		}
 	}

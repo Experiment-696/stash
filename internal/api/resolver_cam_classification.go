@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/stashapp/stash/internal/authz"
@@ -39,7 +40,7 @@ func camShowLibraryModel(show sqlite.CamShowDomainItem) *CamShowLibraryItem {
 	for i, v := range show.Models {
 		models[i] = &CamShowDomainModel{ModelID: strconv.FormatInt(v.ModelID, 10), DisplayName: v.DisplayName, Role: v.Role}
 	}
-	return &CamShowLibraryItem{ID: strconv.FormatInt(show.ID, 10), SceneID: strconv.FormatInt(show.SceneID, 10), Title: show.Title, ShowType: show.ShowType, ShowDate: show.ShowDate, CapturedAt: show.CapturedAt, CapturedTimezone: show.CapturedTimezone, CapturedPrecision: show.CapturedPrecision, DurationSeconds: show.DurationSeconds, DurationOverridden: show.DurationOverridden, DurationOverrideReason: show.DurationOverrideReason, Details: show.Details, Tags: tags, Sites: sites, Links: links, Models: models}
+	return &CamShowLibraryItem{ID: strconv.FormatInt(show.ID, 10), SceneID: strconv.FormatInt(show.SceneID, 10), Title: show.Title, ShowType: show.ShowType, ShowDate: show.ShowDate, CapturedAt: show.CapturedAt, CapturedTimezone: show.CapturedTimezone, CapturedPrecision: show.CapturedPrecision, DurationSeconds: show.DurationSeconds, DurationOverridden: show.DurationOverridden, DurationOverrideReason: show.DurationOverrideReason, Rate: show.Rate, Extras: show.Extras, Request: show.Request, Rating100: show.Rating100, Rating100Average: show.Rating100Average, Rating100Count: show.Rating100Count, Tags: tags, Sites: sites, Links: links, Models: models}
 }
 
 func camClassificationResultModel(result *sqlite.CamClassificationResult) *CamClassificationResult {
@@ -109,7 +110,7 @@ func (r *queryResolver) CamShows(ctx context.Context, sort CamShowSortMode) ([]*
 		for j, model := range show.Models {
 			models[j] = &CamShowDomainModel{ModelID: strconv.FormatInt(model.ModelID, 10), DisplayName: model.DisplayName, Role: model.Role}
 		}
-		ret[i] = &CamShowLibraryItem{ID: strconv.FormatInt(show.ID, 10), SceneID: strconv.FormatInt(show.SceneID, 10), Title: show.Title, ShowType: show.ShowType, ShowDate: show.ShowDate, CapturedAt: show.CapturedAt, CapturedTimezone: show.CapturedTimezone, CapturedPrecision: show.CapturedPrecision, DurationSeconds: show.DurationSeconds, DurationOverridden: show.DurationOverridden, DurationOverrideReason: show.DurationOverrideReason, Details: show.Details, Tags: tags, Sites: sites, Links: links, Models: models}
+		ret[i] = &CamShowLibraryItem{ID: strconv.FormatInt(show.ID, 10), SceneID: strconv.FormatInt(show.SceneID, 10), Title: show.Title, ShowType: show.ShowType, ShowDate: show.ShowDate, CapturedAt: show.CapturedAt, CapturedTimezone: show.CapturedTimezone, CapturedPrecision: show.CapturedPrecision, DurationSeconds: show.DurationSeconds, DurationOverridden: show.DurationOverridden, DurationOverrideReason: show.DurationOverrideReason, Rate: show.Rate, Extras: show.Extras, Request: show.Request, Rating100: show.Rating100, Rating100Average: show.Rating100Average, Rating100Count: show.Rating100Count, Tags: tags, Sites: sites, Links: links, Models: models}
 	}
 	return ret, nil
 }
@@ -250,11 +251,96 @@ func (r *mutationResolver) CamShowUpdate(ctx context.Context, input CamShowCoreU
 		if e != nil {
 			return e
 		}
-		show, e = db.CamShow.UpdateShowCore(txCtx, sqlite.CamShowCoreUpdateInput{ID: id, Title: input.Title, ShowType: input.ShowType, ShowDate: input.ShowDate, CapturedAt: input.CapturedAt, CapturedTimezone: input.CapturedTimezone, CapturedPrecision: input.CapturedPrecision, DurationOverrideSeconds: input.DurationOverrideSeconds, DurationOverrideReason: input.DurationOverrideReason, Details: input.Details})
+		show, e = db.CamShow.UpdateShowCore(txCtx, sqlite.CamShowCoreUpdateInput{ID: id, Title: input.Title, ShowType: input.ShowType, ShowDate: input.ShowDate, CapturedAt: input.CapturedAt, CapturedTimezone: input.CapturedTimezone, CapturedPrecision: input.CapturedPrecision, DurationOverrideSeconds: input.DurationOverrideSeconds, DurationOverrideReason: input.DurationOverrideReason, Rate: input.Rate, Extras: input.Extras, Request: input.Request})
 		if e != nil {
 			return e
 		}
 		return recordCamAudit(txCtx, db, actorID, camAuditShowUpdated, "cam_show", show.ID, "success")
+	})
+	if err != nil {
+		return nil, err
+	}
+	return camShowLibraryModel(*show), nil
+}
+
+func (r *mutationResolver) CamShowSetRating(ctx context.Context, id string, rating100 *int) (*CamShowLibraryItem, error) {
+	showID, e := parseCamID(id)
+	if e != nil {
+		return nil, e
+	}
+	db := r.tokenDatabase()
+	var show *sqlite.CamShowDomainItem
+	e = txn.WithTxn(ctx, db, func(txCtx context.Context) error {
+		userID, err := requirePersistedCamModelPreference(ctx, txCtx, db)
+		if err != nil {
+			return err
+		}
+		if err := db.CamShow.SetShowRating(txCtx, userID, showID, rating100); err != nil {
+			return err
+		}
+		shows, err := db.CamShow.ListShowDomainForUser(txCtx, userID, false)
+		if err != nil {
+			return err
+		}
+		for i := range shows {
+			if shows[i].ID == showID {
+				show = &shows[i]
+				return nil
+			}
+		}
+		return errors.New("Cam Show not found")
+	})
+	if e != nil {
+		return nil, e
+	}
+	return camShowLibraryModel(*show), nil
+}
+
+func (r *mutationResolver) CamShowSetAssociations(ctx context.Context, input CamShowAssociationsInput) (*CamShowLibraryItem, error) {
+	showID, err := parseCamID(input.ID)
+	if err != nil {
+		return nil, err
+	}
+	siteIDs := make([]int64, len(input.SiteIDs))
+	for i, value := range input.SiteIDs {
+		siteIDs[i], err = parseCamID(value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	models := make([]sqlite.CamShowModelAssignment, len(input.Models))
+	for i, value := range input.Models {
+		models[i].ModelID, err = parseCamID(value.ModelID)
+		if err != nil {
+			return nil, err
+		}
+		models[i].Role = value.Role
+	}
+
+	db := r.tokenDatabase()
+	var show *sqlite.CamShowDomainItem
+	err = txn.WithTxn(ctx, db, func(txCtx context.Context) error {
+		actorID, authErr := requirePersistedCamModelAdmin(ctx, txCtx, db)
+		if authErr != nil {
+			return authErr
+		}
+		if setErr := db.CamShow.SetShowAssociations(txCtx, showID, siteIDs, models); setErr != nil {
+			return setErr
+		}
+		shows, listErr := db.CamShow.ListShowDomainForUser(txCtx, actorID, false)
+		if listErr != nil {
+			return listErr
+		}
+		for i := range shows {
+			if shows[i].ID == showID {
+				show = &shows[i]
+				break
+			}
+		}
+		if show == nil {
+			return errors.New("Cam Show not found")
+		}
+		return recordCamAudit(txCtx, db, actorID, camAuditShowUpdated, "cam_show", showID, "success")
 	})
 	if err != nil {
 		return nil, err

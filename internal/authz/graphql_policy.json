@@ -177,6 +177,18 @@
     },
     {
       "kind": "GRAPHQL_MUTATION",
+      "name": "camModelProfileScrape",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "camModelSiteSave",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
       "name": "camModelSetUserState",
       "capability": "preference.self.write",
       "owner_scoped": true
@@ -195,7 +207,19 @@
     },
     {
       "kind": "GRAPHQL_MUTATION",
+      "name": "camShowSetRating",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
       "name": "camShowUpdate",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "camShowSetAssociations",
       "capability": "data.admin",
       "owner_scoped": false
     },

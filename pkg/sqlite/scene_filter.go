@@ -106,6 +106,11 @@ func (qb *sceneFilterHandler) criterionHandler() criterionHandler {
 
 		intCriterionHandler(sceneFilter.Rating100, "scenes.rating", nil),
 		qb.oCountCriterionHandler(sceneFilter.OCounter),
+		criterionHandlerFunc(func(ctx context.Context, f *filterBuilder) {
+			if sceneFilter.ExcludeCamShows != nil && *sceneFilter.ExcludeCamShows {
+				f.addWhere("NOT EXISTS (SELECT 1 FROM cam_shows WHERE cam_shows.scene_id = scenes.id)")
+			}
+		}),
 		boolCriterionHandler(sceneFilter.Organized, "scenes.organized", nil),
 
 		floatIntCriterionHandler(sceneFilter.Duration, "video_files.duration", qb.addVideoFilesTable),

@@ -120,7 +120,7 @@ func (r *queryResolver) FindScenes(
 					FindFilter: filter,
 					Count:      slices.Contains(fields, "count"),
 				},
-				SceneFilter:   sceneFilter,
+				SceneFilter:   defaultSceneLibraryCamShowSeparation(sceneFilter),
 				TotalDuration: slices.Contains(fields, "duration"),
 				TotalSize:     slices.Contains(fields, "filesize"),
 			})
@@ -146,6 +146,24 @@ func (r *queryResolver) FindScenes(
 	}
 
 	return ret, nil
+}
+
+// defaultSceneLibraryCamShowSeparation keeps Cam Show bridge Scenes out of the
+// ordinary Scene library when API clients omit the separation flag. An
+// explicit false remains available for callers that intentionally need both
+// kinds of records. Direct-ID and direct-Scene lookups bypass this list query.
+func defaultSceneLibraryCamShowSeparation(sceneFilter *models.SceneFilterType) *models.SceneFilterType {
+	exclude := true
+	if sceneFilter == nil {
+		return &models.SceneFilterType{ExcludeCamShows: &exclude}
+	}
+	if sceneFilter.ExcludeCamShows != nil {
+		return sceneFilter
+	}
+
+	ret := *sceneFilter
+	ret.ExcludeCamShows = &exclude
+	return &ret
 }
 
 func (r *queryResolver) FindScenesByPathRegex(ctx context.Context, filter *models.FindFilterType) (ret *FindScenesResultType, err error) {

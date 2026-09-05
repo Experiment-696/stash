@@ -112,6 +112,7 @@ interface ISceneCardProps {
   zoomIndex?: number;
   onSelectedChanged?: (selected: boolean, shiftKey: boolean) => void;
   fromGroupId?: string;
+  url?: string;
 }
 
 const Description: React.FC<{
@@ -410,7 +411,9 @@ const SceneCardImage = PatchComponent(
 
     function onScrubberClick(timestamp: number) {
       if (props.selecting) return;
-      const link = props.queue
+      const link = props.url
+        ? `${props.url}?t=${timestamp}`
+        : props.queue
         ? props.queue.makeLink(props.scene.id, {
             sceneIndex: props.index,
             continue: cont,
@@ -475,7 +478,9 @@ export const SceneCard = PatchComponent(
 
     const cont = configuration?.interface.continuePlaylistDefault ?? false;
 
-    const sceneLink = props.queue
+    const sceneLink = props.url
+      ? props.url
+      : props.queue
       ? props.queue.makeLink(props.scene.id, {
           sceneIndex: props.index,
           continue: cont,

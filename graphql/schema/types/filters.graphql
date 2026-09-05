@@ -286,6 +286,8 @@ input SceneFilterType {
   organized: Boolean
   "Filter by o-counter"
   o_counter: IntCriterionInput
+  "Exclude Scenes already classified as Cam Shows from ordinary Scene library results"
+  exclude_cam_shows: Boolean
   "Filter Scenes by duplication criteria"
   duplicated: DuplicationCriterionInput
   "Filter by resolution"

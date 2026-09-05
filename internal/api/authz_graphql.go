@@ -136,7 +136,7 @@ func authorizeGraphQLRoot(ctx context.Context, registry *authz.Registry, object,
 func isResolverOwnedGraphQLRoot(name string) bool {
 	switch name {
 	case "findSavedFilter", "findSavedFilters", "findDefaultFilter", "saveFilter", "destroySavedFilter", "setDefaultFilter",
-		"performerSetFavorite", "performerSetRating", "sceneSetRating", "camModelSetUserState",
+		"performerSetFavorite", "performerSetRating", "sceneSetRating", "camModelSetUserState", "camShowSetRating",
 		"sceneSaveActivity", "sceneResetActivity", "imageIncrementO", "imageDecrementO", "imageResetO",
 		"sceneIncrementO", "sceneDecrementO", "sceneAddO", "sceneDeleteO", "sceneResetO",
 		"sceneIncrementPlayCount", "sceneAddPlay", "sceneDeletePlay", "sceneResetPlayCount":

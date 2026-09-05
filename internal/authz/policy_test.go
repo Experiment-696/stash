@@ -8,14 +8,14 @@ func TestLoadGraphQLPolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	surfaces := registry.Surfaces()
-	if len(surfaces) != 262 {
-		t.Fatalf("surface count=%d want=262", len(surfaces))
+	if len(surfaces) != 266 {
+		t.Fatalf("surface count=%d want=266", len(surfaces))
 	}
 	counts := map[SurfaceKind]int{}
 	for _, surface := range surfaces {
 		counts[surface.Kind]++
 	}
-	if counts[SurfaceGraphQLQuery] != 91 || counts[SurfaceGraphQLMutation] != 168 || counts[SurfaceGraphQLSubscription] != 3 {
+	if counts[SurfaceGraphQLQuery] != 91 || counts[SurfaceGraphQLMutation] != 172 || counts[SurfaceGraphQLSubscription] != 3 {
 		t.Fatalf("unexpected surface counts: %#v", counts)
 	}
 }
@@ -65,7 +65,7 @@ func TestCamModelBrowseAndMutationPolicyMatrix(t *testing.T) {
 			t.Fatalf("user denied %s: %v", name, err)
 		}
 	}
-	for _, name := range []string{"camModelProfileCreate", "camModelProfileUpdate", "camModelAccountAdd", "camModelAccountRetire", "camModelEvidenceCreate", "camModelEvidenceReview"} {
+	for _, name := range []string{"camModelProfileCreate", "camModelProfileUpdate", "camModelProfileScrape", "camModelAccountAdd", "camModelAccountRetire", "camModelEvidenceCreate", "camModelEvidenceReview"} {
 		if err := registry.Require(anonymous, SurfaceGraphQLMutation, name, ""); err == nil {
 			t.Fatalf("anonymous allowed %s", name)
 		}

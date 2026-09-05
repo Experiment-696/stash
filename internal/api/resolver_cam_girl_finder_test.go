@@ -99,7 +99,7 @@ func TestCamGirlFinderPendingAuditIsRedactedAndAtomic(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(results) != 1 || results[0].ChangeID == nil || results[0].EvidenceID == nil {
+		if len(results) != 1 || results[0].ChangeID != nil || results[0].EvidenceID != nil || results[0].Status != "APPLIED" {
 			t.Fatalf("results=%+v", results)
 		}
 		baselineResult = results[0]
@@ -115,7 +115,7 @@ func TestCamGirlFinderPendingAuditIsRedactedAndAtomic(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if len(audits) != 1 || audits[0].EventType != camAuditDiscoveryIngested || audits[0].ActorUserID == nil || *audits[0].ActorUserID != actorID || audits[0].DetailsJSON != nil || audits[0].TargetType == nil || *audits[0].TargetType != "cam_sync_change" || audits[0].TargetID == nil || *audits[0].TargetID != *baselineResult.ChangeID || audits[0].Result != baselineResult.Status {
+	if len(audits) != 1 || audits[0].EventType != camAuditDiscoveryIngested || audits[0].ActorUserID == nil || *audits[0].ActorUserID != actorID || audits[0].DetailsJSON != nil || audits[0].TargetType == nil || *audits[0].TargetType != "cam_model_account" || audits[0].TargetID == nil || audits[0].Result != baselineResult.Status {
 		t.Fatalf("audit=%+v", audits)
 	}
 	baselineCounts := camGirlFinderAuditCounts(t, database)
@@ -137,7 +137,7 @@ func TestCamGirlFinderPendingAuditIsRedactedAndAtomic(t *testing.T) {
 		return err
 	})
 	if err == nil {
-		t.Fatal("CamGirlFinder identity evidence committed despite audit failure")
+		t.Fatal("CamGirlFinder metadata committed despite audit failure")
 	}
 	if after := camGirlFinderAuditCounts(t, database); after != baselineCounts {
 		t.Fatalf("late audit failure left batch residue: before=%v after=%v", baselineCounts, after)
@@ -149,8 +149,8 @@ func camGirlFinderAuditCounts(t *testing.T, database *sqlite.Database) [3]int64 
 	var counts [3]int64
 	if err := txn.WithReadTxn(context.Background(), database, func(txCtx context.Context) error {
 		_, rows, err := database.QuerySQL(txCtx, `SELECT
-			(SELECT count(*) FROM cam_model_profile_provenance),
-			(SELECT count(*) FROM cam_sync_changes),
+			(SELECT count(*) FROM cam_model_accounts),
+			(SELECT count(*) FROM cam_model_aliases),
 			(SELECT count(*) FROM user_audit_events WHERE event_type='cam_girl_finder_evidence_ingested')`, nil)
 		if err != nil {
 			return err

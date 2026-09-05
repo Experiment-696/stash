@@ -3,6 +3,16 @@ type CamModelSite {
   name: String!
   baseURL: String
   externalKey: String
+  icon: String
+  enabled: Boolean!
+}
+
+input CamModelSiteSaveInput {
+  id: ID
+  name: String!
+  baseURL: String
+  externalKey: String
+  icon: String
   enabled: Boolean!
 }
 
@@ -71,6 +81,8 @@ type CamModelProfile {
   displayName: String!
   image: String
   notes: String
+  location: String
+  age: Int
   performerID: ID
   status: String!
   favorite: Boolean!
@@ -107,6 +119,8 @@ input CamModelProfileUpdateInput {
   displayName: String!
   image: String
   notes: String
+  location: String
+  age: Int
   performerID: ID
   status: String!
 }
@@ -140,11 +154,13 @@ extend type Query {
 }
 
 extend type Mutation {
+  camModelSiteSave(input: CamModelSiteSaveInput!): CamModelSite!
   camModelSetUserState(id: ID!, favorite: Boolean!, rating100: Int): CamModelProfile!
   camModelProfileCreate(input: CamModelProfileCreateInput!): CamModelProfile!
   camModelProfileUpdate(input: CamModelProfileUpdateInput!): CamModelProfile!
   camModelAccountAdd(input: CamModelAccountAddInput!): CamModelProfile!
   camModelAccountRetire(id: ID!, validTo: Timestamp!): CamModelProfile!
+  camModelProfileScrape(accountID: ID!): CamModelProfile!
   camModelEvidenceCreate(input: CamModelEvidenceCreateInput!): CamModelEvidenceIngestResult!
   camModelEvidenceReview(id: ID!, state: String!): CamModelEvidence!
   camModelSocialProfileCreate(input: CamModelSocialProfileCreateInput!): CamModelProfile!

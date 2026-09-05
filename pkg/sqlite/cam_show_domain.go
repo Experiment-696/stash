@@ -25,6 +25,11 @@ type CamShowDomainModel struct {
 	Role        string `db:"participation_role"`
 }
 
+type CamShowModelAssignment struct {
+	ModelID int64
+	Role    string
+}
+
 type CamShowDomainItem struct {
 	ID                     int64                `db:"id"`
 	SceneID                int64                `db:"scene_id"`
@@ -37,7 +42,12 @@ type CamShowDomainItem struct {
 	DurationSeconds        *float64             `db:"duration_seconds"`
 	DurationOverridden     bool                 `db:"duration_overridden"`
 	DurationOverrideReason *string              `db:"duration_override_reason"`
-	Details                *string              `db:"details"`
+	Rate                   *float64             `db:"rate"`
+	Extras                 *string              `db:"extras"`
+	Request                *string              `db:"request"`
+	Rating100              *int                 `db:"rating100"`
+	Rating100Average       float64              `db:"rating100_average"`
+	Rating100Count         int                  `db:"rating100_count"`
 	HasFavoriteModel       bool                 `db:"has_favorite_model"`
 	Tags                   []CamShowLibraryTag  `db:"-"`
 	Sites                  []CamShowDomainSite  `db:"-"`
@@ -63,8 +73,8 @@ func (s *CamShowStore) ListShowDomainForUser(ctx context.Context, userID int64, 
 		}
 	}
 	var values []CamShowDomainItem
-	query := `SELECT cs.id,cs.scene_id,COALESCE(NULLIF(cs.title_override,''),NULLIF(sc.title,''),'Show ' || cs.id) AS title,cs.show_type,cs.show_date,cs.captured_at,cs.captured_timezone,cs.captured_precision,COALESCE(cs.duration_override_seconds,(SELECT vf.duration FROM scenes_files sf JOIN video_files vf ON vf.file_id=sf.file_id WHERE sf.scene_id=cs.scene_id ORDER BY sf."primary" DESC,sf.file_id LIMIT 1)) AS duration_seconds,(cs.duration_override_seconds IS NOT NULL) AS duration_overridden,cs.duration_override_reason,cs.notes AS details,`
-	args := []interface{}{}
+	query := `SELECT cs.id,cs.scene_id,COALESCE(NULLIF(cs.title_override,''),NULLIF(sc.title,''),'Show ' || cs.id) AS title,cs.show_type,cs.show_date,cs.captured_at,cs.captured_timezone,cs.captured_precision,COALESCE(cs.duration_override_seconds,(SELECT vf.duration FROM scenes_files sf JOIN video_files vf ON vf.file_id=sf.file_id WHERE sf.scene_id=cs.scene_id ORDER BY sf."primary" DESC,sf.file_id LIMIT 1)) AS duration_seconds,(cs.duration_override_seconds IS NOT NULL) AS duration_overridden,cs.duration_override_reason,cs.rate,cs.extras,cs.request,(SELECT rating FROM cam_show_user_state us WHERE us.show_id=cs.id AND us.user_id=?) AS rating100,COALESCE((SELECT AVG(rating) FROM cam_show_user_state us WHERE us.show_id=cs.id AND us.rating IS NOT NULL),0) AS rating100_average,(SELECT COUNT(rating) FROM cam_show_user_state us WHERE us.show_id=cs.id AND us.rating IS NOT NULL) AS rating100_count,`
+	args := []interface{}{userID}
 	if favoriteModelsFirst {
 		query += `EXISTS(SELECT 1 FROM cam_show_models csm JOIN cam_model_user_state us ON us.model_id=csm.model_id WHERE csm.show_id=cs.id AND us.user_id=? AND us.favorite=1) AS has_favorite_model `
 		args = append(args, userID)
@@ -113,4 +123,52 @@ func (s *CamShowStore) LinkModelWithRole(ctx context.Context, showID, modelID in
 	}
 	_, err := dbWrapper.Exec(ctx, `INSERT INTO cam_show_models(show_id,model_id,billing_order,participation_role) VALUES(?,?,?,?)`, showID, modelID, billingOrder, role)
 	return err
+}
+
+// SetShowAssociations atomically replaces the Sites and ordered Cam Models for
+// one Show. The caller owns the transaction, so any invalid foreign key or
+// later failure restores the previous association set.
+func (s *CamShowStore) SetShowAssociations(ctx context.Context, showID int64, siteIDs []int64, models []CamShowModelAssignment) error {
+	if showID <= 0 {
+		return errors.New("invalid Cam Show")
+	}
+	seenSites := map[int64]struct{}{}
+	for _, siteID := range siteIDs {
+		if siteID <= 0 {
+			return errors.New("invalid Cam Show site")
+		}
+		if _, exists := seenSites[siteID]; exists {
+			return errors.New("duplicate Cam Show site")
+		}
+		seenSites[siteID] = struct{}{}
+	}
+	seenModels := map[int64]struct{}{}
+	for _, model := range models {
+		if model.ModelID <= 0 || !validCamShowRole(model.Role) {
+			return errors.New("invalid Cam Show model assignment")
+		}
+		if _, exists := seenModels[model.ModelID]; exists {
+			return errors.New("duplicate Cam Show model")
+		}
+		seenModels[model.ModelID] = struct{}{}
+	}
+
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM cam_show_sites WHERE show_id=?`, showID); err != nil {
+		return err
+	}
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM cam_show_models WHERE show_id=?`, showID); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, siteID := range siteIDs {
+		if _, err := dbWrapper.Exec(ctx, `INSERT INTO cam_show_sites(show_id,site_id,created_at) VALUES(?,?,?)`, showID, siteID, now); err != nil {
+			return err
+		}
+	}
+	for order, model := range models {
+		if _, err := dbWrapper.Exec(ctx, `INSERT INTO cam_show_models(show_id,model_id,billing_order,participation_role) VALUES(?,?,?,?)`, showID, model.ModelID, order, model.Role); err != nil {
+			return err
+		}
+	}
+	return nil
 }

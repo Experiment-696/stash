@@ -1,7 +1,14 @@
 import React, { useState } from "react";
-import { Alert, Badge, Button, Card, Form } from "react-bootstrap";
-import { Link, useHistory, useLocation } from "react-router-dom";
+import { Alert, Badge, Button, Card, Form, Nav, Tab } from "react-bootstrap";
+import { Link, useHistory, useLocation, useParams } from "react-router-dom";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
+import ScenePlayer from "src/components/ScenePlayer/ScenePlayer";
+import { SceneCard } from "src/components/Scenes/SceneCard";
+import {
+  useCardWidth,
+  useContainerDimensions,
+} from "src/components/Shared/GridCard/GridCard";
+import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
 import * as GQL from "src/core/generated-graphql";
 import { canManageCamModels } from "src/components/CamModels/camModelUi";
 import {
@@ -12,17 +19,39 @@ import {
 } from "./camShowSortUi";
 
 type Show = NonNullable<GQL.CamShowsQuery["camShows"]>[number];
+type ModelAssignment = { modelID: string; role: string };
+
+// Owner-facing labels for the frozen six-value cam show_type taxonomy.
+const SHOW_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: "LIVE_PUBLIC", label: "Public" },
+  {
+    value: "LIVE_GROUP_TICKET_MULTIUSER",
+    label: "Group / ticketed (multi-user)",
+  },
+  { value: "LIVE_PRIVATE", label: "Private" },
+  { value: "LIVE_EXCLUSIVE_PRIVATE", label: "Exclusive private" },
+  { value: "CUSTOM_VIDEO", label: "Offsite / custom video" },
+  { value: "PRIVATE_CALL", label: "Private call" },
+];
+const showTypeLabel = (v: string) =>
+  SHOW_TYPE_OPTIONS.find((o) => o.value === v)?.label ?? v.replaceAll("_", " ");
 
 const ShowCard: React.FC<{
   show: Show;
   canManage: boolean;
   saved: () => Promise<unknown>;
-}> = ({ show, canManage, saved }) => {
-  const [editing, setEditing] = useState(false),
+  initiallyEditing?: boolean;
+}> = ({ show, canManage, saved, initiallyEditing = false }) => {
+  const [editing, setEditing] = useState(initiallyEditing),
     [title, setTitle] = useState(show.title),
     [showType, setShowType] = useState(show.showType),
     [precision, setPrecision] = useState(show.capturedPrecision ?? ""),
-    [details, setDetails] = useState(show.details ?? ""),
+    [capturedAt, setCapturedAt] = useState(
+      show.capturedAt ? show.capturedAt.slice(0, 16) : ""
+    ),
+    [rate, setRate] = useState(show.rate == null ? "" : String(show.rate)),
+    [extras, setExtras] = useState(show.extras ?? ""),
+    [request, setRequest] = useState(show.request ?? ""),
     [failure, setFailure] = useState<string>();
   const [update, state] = GQL.useCamShowUpdateMutation();
   async function submit(e: React.FormEvent) {
@@ -36,14 +65,20 @@ const ShowCard: React.FC<{
             title: title.trim(),
             showType,
             showDate: show.showDate,
-            capturedAt: show.capturedAt,
+            capturedAt: capturedAt
+              ? new Date(capturedAt + "Z").toISOString()
+              : null,
             capturedTimezone: show.capturedTimezone,
             capturedPrecision: precision || null,
             durationOverrideSeconds: show.durationOverridden
               ? show.durationSeconds
               : null,
-            durationOverrideReason: show.durationOverrideReason,
-            details: details.trim() || null,
+            durationOverrideReason: show.durationOverridden
+              ? show.durationOverrideReason
+              : null,
+            rate: rate ? Number(rate) : null,
+            extras: extras.trim() || null,
+            request: request.trim() || null,
           },
         },
       });
@@ -75,15 +110,10 @@ const ShowCard: React.FC<{
               value={showType}
               onChange={(e) => setShowType(e.currentTarget.value)}
             >
-              {[
-                "LIVE_PUBLIC",
-                "LIVE_GROUP_TICKET_MULTIUSER",
-                "LIVE_PRIVATE",
-                "LIVE_EXCLUSIVE_PRIVATE",
-                "CUSTOM_VIDEO",
-                "PRIVATE_CALL",
-              ].map((v) => (
-                <option key={v}>{v}</option>
+              {SHOW_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </Form.Control>
           </Form.Group>
@@ -104,11 +134,38 @@ const ShowCard: React.FC<{
             </Form.Text>
           </Form.Group>
           <Form.Group>
-            <Form.Label>Details / notes</Form.Label>
+            <Form.Label>Date / time</Form.Label>
+            <Form.Control
+              type="datetime-local"
+              value={capturedAt}
+              onChange={(e) => setCapturedAt(e.currentTarget.value)}
+            />
+            <Form.Text muted>Stored and shown in UTC.</Form.Text>
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Rate</Form.Label>
+            <Form.Control
+              type="number"
+              min="0"
+              step="any"
+              value={rate}
+              onChange={(e) => setRate(e.currentTarget.value)}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Request</Form.Label>
             <Form.Control
               as="textarea"
-              value={details}
-              onChange={(e) => setDetails(e.currentTarget.value)}
+              value={request}
+              onChange={(e) => setRequest(e.currentTarget.value)}
+            />
+          </Form.Group>
+          <Form.Group>
+            <Form.Label>Extras</Form.Label>
+            <Form.Control
+              as="textarea"
+              value={extras}
+              onChange={(e) => setExtras(e.currentTarget.value)}
             />
           </Form.Group>
           <Button type="submit" disabled={state.loading}>
@@ -129,12 +186,10 @@ const ShowCard: React.FC<{
       ) : (
         <>
           <Card.Title>
-            <Link to={"/scenes/" + show.sceneID}>{show.title}</Link>
+            <Link to={"/shows/" + show.id}>{show.title}</Link>
           </Card.Title>
           <div>
-            <Badge variant="secondary">
-              {show.showType.replaceAll("_", " ")}
-            </Badge>
+            <Badge variant="secondary">{showTypeLabel(show.showType)}</Badge>
           </div>
           <div className="mt-2">
             {show.showDate
@@ -156,7 +211,9 @@ const ShowCard: React.FC<{
                 : " (from linked Scene file)"}
             </div>
           )}
-          {show.details && <p className="mt-2 mb-1">{show.details}</p>}
+          {show.rate != null && <div>Rate: {show.rate}</div>}
+          {show.request && <p className="mt-2 mb-1">Request: {show.request}</p>}
+          {show.extras && <p className="mt-2 mb-1">Extras: {show.extras}</p>}
           <div className="mt-2">
             {show.sites.length ? (
               show.sites.map((v) => (
@@ -203,27 +260,241 @@ const ShowCard: React.FC<{
               <span className="text-muted">No tags</span>
             )}
           </div>
-          <Link className="btn btn-primary mt-3" to={"/scenes/" + show.sceneID}>
-            Open Scene player
-          </Link>
-          {canManage && (
-            <Button
-              className="mt-3 ml-2"
-              variant="outline-primary"
-              onClick={() => setEditing(true)}
-            >
-              Edit Show
-            </Button>
-          )}
         </>
       )}
     </Card>
   );
 };
 
+const ShowDetailsPage: React.FC<{
+  show: Show;
+  canManage: boolean;
+  saved: () => Promise<unknown>;
+}> = ({ show, canManage, saved }) => {
+  const { data, loading, error } = GQL.useFindSceneQuery({
+    variables: { id: show.sceneID },
+  });
+  const { data: options } = GQL.useCamShowAssociationOptionsQuery({
+    skip: !canManage,
+  });
+  const [siteIDs, setSiteIDs] = useState(show.sites.map((site) => site.id));
+  const [models, setModels] = useState<ModelAssignment[]>(
+    show.models.map((model) => ({
+      modelID: model.modelID,
+      role: model.role,
+    }))
+  );
+  const [associationFailure, setAssociationFailure] = useState<string>();
+  const [setAssociations, associationState] =
+    GQL.useCamShowSetAssociationsMutation();
+  const [setShowRating] = GQL.useCamShowSetRatingMutation();
+
+  const toggleModel = (modelID: string, selected: boolean) => {
+    setModels((current) =>
+      selected
+        ? [...current, { modelID, role: "PARTICIPANT" }]
+        : current.filter((model) => model.modelID !== modelID)
+    );
+  };
+  const setModelRole = (modelID: string, role: string) => {
+    setModels((current) =>
+      current.map((model) =>
+        model.modelID === modelID ? { ...model, role } : model
+      )
+    );
+  };
+  const saveAssociations = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAssociationFailure(undefined);
+    try {
+      await setAssociations({
+        variables: { input: { id: show.id, siteIDs, models } },
+      });
+      await saved();
+    } catch (saveError) {
+      setAssociationFailure(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to save Show associations."
+      );
+    }
+  };
+
+  return (
+    <div className="row" data-testid="cam-show-details">
+      <div className="scene-tabs order-xl-first order-last">
+        <div className="scene-header-container">
+          <h3 className="scene-header no-studio">{show.title}</h3>
+        </div>
+        <div className="scene-subheader">
+          {show.showDate
+            ? new Date(show.showDate).toLocaleDateString()
+            : "Date unknown"}
+        </div>
+        <div className="scene-toolbar">
+          <span className="scene-toolbar-group">
+            <RatingSystem
+              value={show.rating100}
+              onSetRating={(rating100) =>
+                void setShowRating({
+                  variables: { id: show.id, rating100 },
+                }).then(() => saved())
+              }
+              clickToRate
+              withoutContext
+            />
+            <span className="scene-rating-average">
+              Global {show.rating100Average.toFixed(1)}/100 (
+              {show.rating100Count})
+            </span>
+          </span>
+        </div>
+        <Tab.Container defaultActiveKey="show-details-panel">
+          <Nav variant="tabs" className="mr-auto">
+            <Nav.Item>
+              <Nav.Link eventKey="show-details-panel">Details</Nav.Link>
+            </Nav.Item>
+            {canManage && (
+              <Nav.Item>
+                <Nav.Link eventKey="show-edit-panel">Edit</Nav.Link>
+              </Nav.Item>
+            )}
+          </Nav>
+          <Tab.Content>
+            <Tab.Pane eventKey="show-details-panel">
+              <ShowCard show={show} canManage={false} saved={saved} />
+            </Tab.Pane>
+            {canManage && (
+              <Tab.Pane eventKey="show-edit-panel">
+                <ShowCard
+                  show={show}
+                  canManage
+                  saved={saved}
+                  initiallyEditing
+                />
+                {canManage && (
+                  <Card body className="mt-3">
+                    <Card.Title>Site and Cam Models</Card.Title>
+                    {associationFailure && (
+                      <Alert variant="danger">{associationFailure}</Alert>
+                    )}
+                    <Form onSubmit={(event) => void saveAssociations(event)}>
+                      <Form.Group>
+                        <Form.Label>Site</Form.Label>
+                        <Form.Control
+                          as="select"
+                          multiple
+                          value={siteIDs}
+                          onChange={(event) =>
+                            setSiteIDs(
+                              Array.from(
+                                event.currentTarget.selectedOptions
+                              ).map((option) => option.value)
+                            )
+                          }
+                        >
+                          {options?.camModelSites
+                            .filter((site) => site.enabled)
+                            .map((site) => (
+                              <option key={site.id} value={site.id}>
+                                {site.name}
+                              </option>
+                            ))}
+                        </Form.Control>
+                      </Form.Group>
+                      <Form.Group>
+                        <Form.Label>Cam Models</Form.Label>
+                        {options?.camModelProfiles
+                          .filter((model) => model.status === "ACTIVE")
+                          .map((model) => {
+                            const assignment = models.find(
+                              (value) => value.modelID === model.id
+                            );
+                            return (
+                              <div
+                                className="d-flex align-items-center mb-2"
+                                key={model.id}
+                              >
+                                <Form.Check
+                                  className="mr-2"
+                                  id={`show-model-${model.id}`}
+                                  label={model.displayName}
+                                  checked={Boolean(assignment)}
+                                  onChange={(event) =>
+                                    toggleModel(
+                                      model.id,
+                                      event.currentTarget.checked
+                                    )
+                                  }
+                                />
+                                {assignment && (
+                                  <Form.Control
+                                    aria-label={`${model.displayName} participation role`}
+                                    as="select"
+                                    className="ml-auto w-auto"
+                                    value={assignment.role}
+                                    onChange={(event) =>
+                                      setModelRole(
+                                        model.id,
+                                        event.currentTarget.value
+                                      )
+                                    }
+                                  >
+                                    {[
+                                      "SOLO",
+                                      "PRIMARY",
+                                      "GUEST",
+                                      "PARTICIPANT",
+                                    ].map((role) => (
+                                      <option key={role}>{role}</option>
+                                    ))}
+                                  </Form.Control>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </Form.Group>
+                      <Button type="submit" disabled={associationState.loading}>
+                        Save Site and Cam Models
+                      </Button>
+                    </Form>
+                  </Card>
+                )}
+              </Tab.Pane>
+            )}
+          </Tab.Content>
+        </Tab.Container>
+      </div>
+      <div className="scene-divider d-none d-xl-block" />
+      <div className="scene-player-container">
+        {loading && <p>Loading Show video…</p>}
+        {error && (
+          <Alert variant="danger">Unable to load the Show video.</Alert>
+        )}
+        {data?.findScene && (
+          <div className="scene-player-container">
+            <ScenePlayer
+              scene={data.findScene}
+              hideScrubberOverride={false}
+              autoplay={false}
+              permitLoop
+              initialTimestamp={0}
+              sendSetTimestamp={() => undefined}
+              onComplete={() => undefined}
+              onNext={() => undefined}
+              onPrevious={() => undefined}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const ShowsPage: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
+  const { id } = useParams<{ id?: string }>();
   const sort = camShowSortFromSearch(location.search);
   const { data: me } = GQL.useMeQuery({ fetchPolicy: "no-cache" });
   const canManage = canManageCamModels(me?.me.capabilities);
@@ -232,6 +503,14 @@ export const ShowsPage: React.FC = () => {
     fetchPolicy: "network-only",
   });
   const shows = uniqueCamShows(data?.camShows ?? []);
+  const sceneIDs = shows.map((show) => Number(show.sceneID));
+  const { data: sceneData, loading: scenesLoading } = GQL.useFindScenesQuery({
+    variables: { scene_ids: sceneIDs },
+    skip: sceneIDs.length === 0,
+  });
+  const [gridRef, { width: gridWidth }] = useContainerDimensions();
+  const cardWidth = useCardWidth(gridWidth, 0, [280, 340, 480, 640]);
+  const showBySceneID = new Map(shows.map((show) => [show.sceneID, show]));
   const changeSort = (next: GQL.CamShowSortMode) => {
     history.replace({
       pathname: location.pathname,
@@ -242,6 +521,23 @@ export const ShowsPage: React.FC = () => {
     ? "Unable to load Shows. Your session may have expired; sign in again and return to this page."
     : undefined;
 
+  if (id && !loading && !error) {
+    const show = shows.find((candidate) => candidate.id === id);
+    if (!show) {
+      return (
+        <div className="container-fluid">
+          <Alert variant="warning">Show {id} was not found.</Alert>
+          <Link className="btn btn-secondary" to="/shows">
+            Back to Shows
+          </Link>
+        </div>
+      );
+    }
+    return (
+      <ShowDetailsPage show={show} canManage={canManage} saved={refetch} />
+    );
+  }
+
   return (
     <div className="container-fluid" data-testid="cam-shows-library">
       <h1>Shows</h1>
@@ -251,7 +547,7 @@ export const ShowsPage: React.FC = () => {
         loading={loading}
         error={loadError}
       />
-      {!loading && !error && (
+      {!loading && !scenesLoading && !error && (
         <>
           <p className="text-muted">
             {shows.length} classified Shows. Show details are independent
@@ -262,12 +558,21 @@ export const ShowsPage: React.FC = () => {
               No cam-show records have been classified yet.
             </Alert>
           ) : (
-            <div className="row">
-              {shows.map((show) => (
-                <div className="col-12 col-md-6 col-xl-4 mb-3" key={show.id}>
-                  <ShowCard show={show} canManage={canManage} saved={refetch} />
-                </div>
-              ))}
+            <div className="row justify-content-center" ref={gridRef}>
+              {(sceneData?.findScenes.scenes ?? []).map((scene) => {
+                const show = showBySceneID.get(scene.id);
+                return show ? (
+                  <SceneCard
+                    key={show.id}
+                    width={cardWidth}
+                    scene={scene}
+                    zoomIndex={0}
+                    selecting={false}
+                    selected={false}
+                    url={`/shows/${show.id}`}
+                  />
+                ) : null;
+              })}
             </div>
           )}
         </>

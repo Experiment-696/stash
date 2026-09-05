@@ -4,15 +4,26 @@ import {
   Badge,
   Button,
   Card,
-  Col,
   Form,
-  Row,
   Spinner,
+  Tab,
   Table,
+  Tabs,
 } from "react-bootstrap";
 import { Link, useHistory, useParams } from "react-router-dom";
 import { ExternalLink } from "src/components/Shared/ExternalLink";
 import { FavoriteIcon } from "src/components/Shared/FavoriteIcon";
+import {
+  GridCard,
+  useCardWidth,
+  useContainerDimensions,
+} from "src/components/Shared/GridCard/GridCard";
+import { RatingBanner } from "src/components/Shared/RatingBanner";
+import { RatingSystem } from "src/components/Shared/Rating/RatingSystem";
+import { DetailImage } from "src/components/Shared/DetailImage";
+import { BackgroundImage } from "src/components/Shared/DetailsPage/BackgroundImage";
+import { DetailTitle } from "src/components/Shared/DetailsPage/DetailTitle";
+import { HeaderImage } from "src/components/Shared/DetailsPage/HeaderImage";
 import * as GQL from "src/core/generated-graphql";
 import {
   camModelAccountPeriod,
@@ -30,6 +41,101 @@ const Loading = () => (
   </div>
 );
 
+const CamSiteEditor: React.FC<{
+  site?: GQL.CamModelSiteDataFragment;
+  saved: () => Promise<unknown>;
+}> = ({ site, saved }) => {
+  const [name, setName] = useState(site?.name ?? "");
+  const [baseURL, setBaseURL] = useState(site?.baseURL ?? "");
+  const [externalKey, setExternalKey] = useState(site?.externalKey ?? "");
+  const [icon, setIcon] = useState(site?.icon ?? "");
+  const [enabled, setEnabled] = useState(site?.enabled ?? true);
+  const [save, state] = GQL.useCamModelSiteSaveMutation();
+  return (
+    <Form
+      className="d-flex flex-wrap align-items-center mb-2"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        await save({
+          variables: {
+            input: {
+              id: site?.id,
+              name: name.trim(),
+              baseURL: baseURL.trim() || null,
+              externalKey: externalKey.trim() || null,
+              icon: icon.trim() || null,
+              enabled,
+            },
+          },
+        });
+        await saved();
+        if (!site) {
+          setName("");
+          setBaseURL("");
+          setExternalKey("");
+          setIcon("");
+        }
+      }}
+    >
+      {icon && (
+        <img src={icon} alt="" width={24} height={24} className="mr-2" />
+      )}
+      <Form.Control
+        className="mr-2 mb-1"
+        value={name}
+        onChange={(e) => setName(e.currentTarget.value)}
+        placeholder="Site name"
+        required
+      />
+      <Form.Control
+        className="mr-2 mb-1"
+        value={baseURL}
+        onChange={(e) => setBaseURL(e.currentTarget.value)}
+        placeholder="https://site.example"
+      />
+      <Form.Control
+        className="mr-2 mb-1"
+        value={externalKey}
+        onChange={(e) => setExternalKey(e.currentTarget.value)}
+        placeholder="Provider key"
+      />
+      <Form.Control
+        className="mr-2 mb-1"
+        value={icon}
+        onChange={(e) => setIcon(e.currentTarget.value)}
+        placeholder="Icon path"
+      />
+      <Form.Check
+        className="mr-2"
+        checked={enabled}
+        onChange={(e) => setEnabled(e.currentTarget.checked)}
+        label="Enabled"
+      />
+      <Button type="submit" size="sm" disabled={state.loading}>
+        {site ? "Save" : "Add site"}
+      </Button>
+    </Form>
+  );
+};
+
+const CamSiteManager: React.FC<{
+  sites: GQL.CamModelSiteDataFragment[];
+  saved: () => Promise<unknown>;
+}> = ({ sites, saved }) => (
+  <Card body className="mb-4" data-testid="cam-site-manager">
+    <h2>Cam Sites</h2>
+    <p className="text-muted">
+      Sites are shared. Each Cam Model can have a different username on every
+      site.
+    </p>
+    {sites.map((site) => (
+      <CamSiteEditor key={site.id} site={site} saved={saved} />
+    ))}
+    <hr />
+    <CamSiteEditor saved={saved} />
+  </Card>
+);
+
 const CamModelList: React.FC = () => {
   const { data: meData } = GQL.useMeQuery({ fetchPolicy: "no-cache" });
   const canManage = canManageCamModels(meData?.me.capabilities);
@@ -43,6 +149,8 @@ const CamModelList: React.FC = () => {
   const [create] = GQL.useCamModelProfileCreateMutation();
   const [name, setName] = useState("");
   const [failure, setFailure] = useState<string>();
+  const [gridRef, { width: gridWidth }] = useContainerDimensions();
+  const cardWidth = useCardWidth(gridWidth, 1, [240, 300, 375, 470]);
   if (loading) return <Loading />;
   if (error)
     return (
@@ -90,8 +198,7 @@ const CamModelList: React.FC = () => {
       <h1>Cam Models</h1>
       <p className="text-muted">
         Durable profiles keep site accounts and username history together.
-        Provider evidence always waits for review and never merges identity
-        automatically.
+        Use CamGirlFinder from a model profile to add aliases and profile details.
       </p>
       {failure && (
         <Alert variant="danger" role="alert">
@@ -99,22 +206,28 @@ const CamModelList: React.FC = () => {
         </Alert>
       )}
       {canManage && (
-        <Card body className="mb-4">
-          <Form inline onSubmit={(e) => void submit(e)}>
-            <Form.Label className="mr-2" htmlFor="cam-model-name">
-              New profile
-            </Form.Label>
-            <Form.Control
-              id="cam-model-name"
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              placeholder="Display name"
-            />
-            <Button className="ml-2" type="submit">
-              Create
-            </Button>
-          </Form>
-        </Card>
+        <>
+          <details className="mb-4">
+            <summary className="btn btn-secondary">Manage Cam Sites</summary>
+            <CamSiteManager sites={data?.camModelSites ?? []} saved={refetch} />
+          </details>
+          <Card body className="mb-4">
+            <Form inline onSubmit={(e) => void submit(e)}>
+              <Form.Label className="mr-2" htmlFor="cam-model-name">
+                New profile
+              </Form.Label>
+              <Form.Control
+                id="cam-model-name"
+                value={name}
+                onChange={(e) => setName(e.currentTarget.value)}
+                placeholder="Display name"
+              />
+              <Button className="ml-2" type="submit">
+                Create
+              </Button>
+            </Form>
+          </Card>
+        </>
       )}
       <Form.Group controlId="cam-model-view" className="mb-3">
         <Form.Label>Model view</Form.Label>
@@ -140,42 +253,69 @@ const CamModelList: React.FC = () => {
             : "No Cam Model profiles yet. Create the first profile above."}
         </Alert>
       ) : (
-        <Row>
+        <div className="row justify-content-center" ref={gridRef}>
           {profiles.map((profile) => (
-            <Col md={6} xl={4} key={profile.id} className="mb-3">
-              <Card body>
-                <Card.Title className="d-flex align-items-center justify-content-between">
-                  <Link to={"/cam-models/" + profile.id}>
-                    {profile.displayName}
-                  </Link>
+            <GridCard
+              key={profile.id}
+              className="performer-card zoom-1 cam-model-card"
+              url={"/cam-models/" + profile.id}
+              width={cardWidth}
+              title={
+                <span className="performer-name">{profile.displayName}</span>
+              }
+              image={
+                profile.image ? (
+                  <img
+                    loading="lazy"
+                    className="performer-card-image"
+                    alt={profile.displayName}
+                    src={profile.image}
+                  />
+                ) : (
+                  <div
+                    className="performer-card-image d-flex align-items-center justify-content-center bg-secondary"
+                    role="img"
+                    aria-label={`${profile.displayName} has no image`}
+                  >
+                    <span className="display-1 text-muted">?</span>
+                  </div>
+                )
+              }
+              overlays={
+                <>
                   <FavoriteIcon
                     favorite={profile.favorite}
                     onToggleFavorite={(value) =>
                       void toggleFavorite(profile.id, value, profile.rating100)
                     }
-                    className={favoriteState.loading ? "disabled" : undefined}
+                    size="2x"
+                    className={`hide-not-favorite${
+                      favoriteState.loading ? " disabled" : ""
+                    }`}
                   />
-                </Card.Title>
-                <Badge
-                  variant={
-                    profile.status === "ACTIVE" ? "success" : "secondary"
-                  }
-                >
-                  {profile.status}
-                </Badge>
-                <p className="mt-2 mb-0">
-                  {profile.accounts.length} site account
-                  {profile.accounts.length === 1 ? "" : "s"} ·{" "}
-                  {
-                    profile.evidence.filter((e) => e.reviewState === "PENDING")
-                      .length
-                  }{" "}
-                  pending review
-                </p>
-              </Card>
-            </Col>
+                  {!!profile.rating100 && (
+                    <RatingBanner rating={profile.rating100} />
+                  )}
+                </>
+              }
+              details={
+                <>
+                  <Badge
+                    variant={
+                      profile.status === "ACTIVE" ? "success" : "secondary"
+                    }
+                  >
+                    {profile.status}
+                  </Badge>
+                  <div className="mt-2">
+                    {profile.accounts.length} site account
+                    {profile.accounts.length === 1 ? "" : "s"}
+                  </div>
+                </>
+              }
+            />
           ))}
-        </Row>
+        </div>
       )}
     </div>
   );
@@ -191,12 +331,17 @@ const CamModelDetail: React.FC<{ id: string }> = ({ id }) => {
   const [update] = GQL.useCamModelProfileUpdateMutation();
   const [addAccount] = GQL.useCamModelAccountAddMutation();
   const [retire] = GQL.useCamModelAccountRetireMutation();
-  const [review] = GQL.useCamModelEvidenceReviewMutation();
+  const [scrapeProfile, scrapeState] = GQL.useCamModelProfileScrapeMutation();
   const [createSocial] = GQL.useCamModelSocialProfileCreateMutation();
   const [retireSocial] = GQL.useCamModelSocialProfileRetireMutation();
   const [setUserState, favoriteState] = GQL.useCamModelSetUserStateMutation();
   const [name, setName] = useState<string>();
   const [status, setStatus] = useState<string>();
+  const [image, setImage] = useState<string>();
+  const [notes, setNotes] = useState<string>();
+  const [location, setLocation] = useState<string>();
+  const [age, setAge] = useState<string>();
+  const [isEditing, setIsEditing] = useState(false);
   const [siteID, setSiteID] = useState("");
   const [handle, setHandle] = useState("");
   const [socialPlatform, setSocialPlatform] = useState("");
@@ -237,7 +382,11 @@ const CamModelDetail: React.FC<{ id: string }> = ({ id }) => {
     }
   }
   const editName = name ?? profile.displayName,
-    editStatus = status ?? profile.status;
+    editStatus = status ?? profile.status,
+    editImage = image ?? profile.image ?? "",
+    editNotes = notes ?? profile.notes ?? "",
+    editLocation = location ?? profile.location ?? "",
+    editAge = age ?? (profile.age ? String(profile.age) : "");
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const validation = camModelProfileValidation(editName);
@@ -245,15 +394,17 @@ const CamModelDetail: React.FC<{ id: string }> = ({ id }) => {
       setFailure(validation);
       return;
     }
-    await run(
+    const saved = await run(
       () =>
         update({
           variables: {
             input: {
               id,
               displayName: editName.trim(),
-              image: profile!.image,
-              notes: profile!.notes,
+              image: editImage.trim() || null,
+              notes: editNotes.trim() || null,
+              location: editLocation.trim() || null,
+              age: editAge.trim() ? Number(editAge) : null,
               performerID: profile!.performerID,
               status: editStatus,
             },
@@ -261,6 +412,7 @@ const CamModelDetail: React.FC<{ id: string }> = ({ id }) => {
         }),
       "Profile updated."
     );
+    if (saved) setIsEditing(false);
   }
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -325,283 +477,359 @@ const CamModelDetail: React.FC<{ id: string }> = ({ id }) => {
     );
     if (!ok) throw new Error("retire account failed");
   }
+  async function scrapeAccount(accountID: string) {
+    const ok = await run(
+      () => scrapeProfile({ variables: { accountID } }),
+      "Public profile information imported. Existing values were preserved."
+    );
+    if (!ok) throw new Error("profile scrape failed");
+  }
   return (
-    <div className="container-fluid" data-testid="cam-model-detail">
-      <Link to="/cam-models">← All Cam Models</Link>
-      <div className="d-flex align-items-center">
-        <h1 className="mr-2">{profile.displayName}</h1>
-        <FavoriteIcon
-          favorite={profile.favorite}
-          onToggleFavorite={(value) => void toggleFavorite(value)}
-          className={favoriteState.loading ? "disabled" : undefined}
+    <div id="performer-page" className="row" data-testid="cam-model-detail">
+      <div className="detail-header">
+        <BackgroundImage
+          imagePath={profile.image ?? undefined}
+          show={!isEditing}
         />
-      </div>
-      <p className="text-muted">
-        Identity changes are manual. Evidence approval records review only; it
-        does not create accounts or merge profiles.
-      </p>
-      {failure && (
-        <Alert variant="danger" role="alert">
-          {failure}
-        </Alert>
-      )}
-      {notice && <Alert variant="success">{notice}</Alert>}
-      {canManage && (
-        <Card body className="mb-4">
-          <h2>Profile</h2>
-          <Form onSubmit={(e) => void save(e)}>
-            <Form.Group controlId="profile-name">
-              <Form.Label>Display name</Form.Label>
-              <Form.Control
-                value={editName}
-                onChange={(e) => setName(e.currentTarget.value)}
+        <div className="detail-container">
+          <HeaderImage encodingImage={false}>
+            {!!profile.image && (
+              <DetailImage
+                className="performer"
+                src={profile.image}
+                alt={profile.displayName}
               />
-            </Form.Group>
-            <Form.Group controlId="profile-status">
-              <Form.Label>Status</Form.Label>
-              <Form.Control
-                as="select"
-                value={editStatus}
-                onChange={(e) => setStatus(e.currentTarget.value)}
+            )}
+          </HeaderImage>
+          <div className="row">
+            <div className="performer-head col">
+              <Link to="/cam-models">← All Cam Models</Link>
+              <DetailTitle
+                name={profile.displayName}
+                classNamePrefix="performer"
               >
-                <option>ACTIVE</option>
-                <option>INACTIVE</option>
-                <option>UNKNOWN</option>
-              </Form.Control>
-            </Form.Group>
-            <Button type="submit">Save profile</Button>
-          </Form>
-        </Card>
-      )}
-      <Card body className="mb-4">
-        <h2>Site accounts and username history</h2>
-        {!profile.accounts.length ? (
-          <Alert variant="info">No site accounts yet.</Alert>
-        ) : (
-          <Table responsive striped>
-            <thead>
-              <tr>
-                <th>Site</th>
-                <th>Username</th>
-                <th>Dates</th>
-                <th>Status/source</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {profile.accounts.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.site.name}</td>
-                  <td>
-                    {a.profileURL ? (
-                      <ExternalLink href={a.profileURL}>
-                        {a.handle}
-                      </ExternalLink>
-                    ) : (
-                      a.handle
-                    )}
-                  </td>
-                  <td>{camModelAccountPeriod(a.validFrom, a.validTo)}</td>
-                  <td>
-                    <Badge variant={a.validTo ? "secondary" : "success"}>
-                      {a.validTo ? "HISTORICAL" : "CURRENT"}
-                    </Badge>{" "}
-                    {a.status} · {a.source}
-                  </td>
-                  <td>
-                    {canManage && !a.validTo && (
-                      <CamModelConfirmedAction
-                        testID={"cam-model-retire-account-" + a.id}
-                        title="Move username to history?"
-                        description="This marks the current username historical. No identity is merged or deleted."
-                        triggerLabel="Move to history"
-                        confirmLabel="Move username to history"
-                        triggerSize="sm"
-                        triggerVariant="outline-secondary"
-                        onConfirm={() => retireAccount(a.id)}
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        )}
-        {canManage &&
-          (!data?.camModelSites.length ? (
-            <Alert variant="warning">
-              No sites are configured yet. Site administration must be completed
-              before adding an account.
-            </Alert>
-          ) : (
-            <Form inline onSubmit={(e) => void add(e)}>
-              <Form.Control
-                as="select"
-                value={siteID}
-                onChange={(e) => setSiteID(e.currentTarget.value)}
-              >
-                <option value="">Choose site</option>
-                {data.camModelSites.map((s) => (
-                  <option value={s.id} key={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Form.Control>
-              <Form.Control
-                className="ml-2"
-                value={handle}
-                onChange={(e) => setHandle(e.currentTarget.value)}
-                placeholder="Username"
-              />
-              <Button className="ml-2" type="submit">
-                Add account
-              </Button>
-            </Form>
-          ))}
-      </Card>
-      <Card body className="mb-4" data-testid="cam-model-social-profiles">
-        <h2>Social and media profiles</h2>
-        <p className="text-muted">
-          Typed profile links are separate from cam-site accounts and retain
-          active/history status and provenance.
-        </p>
-        {!profile.socialProfiles.length ? (
-          <Alert variant="info">No social or media profiles yet.</Alert>
-        ) : (
-          profile.socialProfiles.map((social) => (
-            <div
-              className="d-flex justify-content-between mb-2"
-              key={social.id}
-            >
-              <span>
-                {social.icon && <span className="mr-1">{social.icon}</span>}
-                <ExternalLink href={social.profileURL}>
-                  {social.handle
-                    ? social.platform + " · @" + social.handle
-                    : social.platform}
-                </ExternalLink>{" "}
-                <Badge variant={social.validTo ? "secondary" : "success"}>
-                  {social.validTo ? "HISTORICAL" : "ACTIVE"}
-                </Badge>{" "}
-                · {social.source}
-                {social.provenance ? " · " + social.provenance : ""}
-              </span>
-              {canManage && !social.validTo && (
-                <CamModelConfirmedAction
-                  testID={"cam-model-archive-social-" + social.id}
-                  title="Move social/media profile to history?"
-                  description="This archives this social/media profile link while preserving its provenance and history."
-                  triggerLabel="Move to history"
-                  confirmLabel="Move profile to history"
-                  triggerSize="sm"
-                  triggerVariant="outline-secondary"
-                  onConfirm={() => archiveSocial(social.id)}
-                />
-              )}
-            </div>
-          ))
-        )}
-        {canManage && (
-          <Form inline onSubmit={(e) => void addSocial(e)}>
-            <Form.Control
-              value={socialPlatform}
-              onChange={(e) => setSocialPlatform(e.currentTarget.value)}
-              placeholder="Platform (X, Telegram…)"
-            />
-            <Form.Control
-              className="ml-2"
-              value={socialHandle}
-              onChange={(e) => setSocialHandle(e.currentTarget.value)}
-              placeholder="Handle (optional)"
-            />
-            <Form.Control
-              className="ml-2"
-              value={socialURL}
-              onChange={(e) => setSocialURL(e.currentTarget.value)}
-              placeholder="https://profile…"
-            />
-            <Button className="ml-2" type="submit">
-              Add profile
-            </Button>
-          </Form>
-        )}
-      </Card>
-      {canManage && <CamGirlFinderSearchCard modelID={id} onIngest={refetch} />}
-      <Card body>
-        <h2>Provenance and review evidence</h2>
-        {!profile.evidence.length ? (
-          <Alert variant="info">No provider evidence has been observed.</Alert>
-        ) : (
-          profile.evidence.map((e) => (
-            <Card body className="mb-2" key={e.id}>
-              <div>
-                <strong>{e.provider}</strong> · <code>{e.evidenceKey}</code>{" "}
-                <Badge
-                  variant={
-                    e.reviewState === "PENDING"
-                      ? "warning"
-                      : e.reviewState === "APPROVED"
-                      ? "success"
-                      : "danger"
+                <span className="name-icons">
+                  <FavoriteIcon
+                    favorite={profile.favorite}
+                    onToggleFavorite={(value) => void toggleFavorite(value)}
+                    className={favoriteState.loading ? "disabled" : undefined}
+                  />
+                </span>
+              </DetailTitle>
+              <div className="quality-group mb-3">
+                <RatingSystem
+                  value={profile.rating100}
+                  onSetRating={(rating100) =>
+                    void setUserState({
+                      variables: { id, favorite: profile.favorite, rating100 },
+                    }).then(() => refetch())
                   }
-                >
-                  {e.reviewState}
-                </Badge>
+                  clickToRate
+                  withoutContext
+                />
+                <span className="ml-2 text-muted">Your rating</span>
               </div>
-              <div>
-                Observed {new Date(e.observedAt).toLocaleString()}{" "}
-                {e.confidence != null && "· confidence " + e.confidence}
-              </div>
-              {e.sourceURL && (
-                <ExternalLink href={e.sourceURL}>
-                  Open source evidence
-                </ExternalLink>
-              )}
-              {canManage && (
-                <details>
-                  <summary>Raw provider evidence</summary>
-                  <pre>{e.payloadJSON}</pre>
-                </details>
-              )}
-              {canManage && e.reviewState === "PENDING" && (
-                <div className="mt-2">
-                  <Button
-                    size="sm"
-                    variant="success"
-                    onClick={() =>
-                      void run(
-                        () =>
-                          review({
-                            variables: { id: e.id, state: "APPROVED" },
-                          }),
-                        "Evidence approved; identity was not changed."
-                      )
+              {!isEditing && (
+                <div className="mb-3">
+                  <Badge
+                    variant={
+                      profile.status === "ACTIVE" ? "success" : "secondary"
                     }
                   >
-                    Approve evidence
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    className="ml-2"
-                    onClick={() =>
-                      void run(
-                        () =>
-                          review({
-                            variables: { id: e.id, state: "REJECTED" },
-                          }),
-                        "Evidence rejected."
-                      )
-                    }
-                  >
-                    Reject evidence
-                  </Button>
+                    {profile.status}
+                  </Badge>
+                  {profile.notes && (
+                    <p className="mt-2 mb-0">{profile.notes}</p>
+                  )}
+                  {(profile.location || profile.age) && (
+                    <p className="mt-2 mb-0 text-muted">
+                      {[profile.location, profile.age ? `Age ${profile.age}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
                 </div>
               )}
-            </Card>
-          ))
-        )}
-      </Card>
+              <p className="text-muted">
+                Site-specific usernames and aliases identify the same Cam Model
+                across different cam sites.
+              </p>
+              {failure && (
+                <Alert variant="danger" role="alert">
+                  {failure}
+                </Alert>
+              )}
+              {notice && <Alert variant="success">{notice}</Alert>}
+              {canManage && !isEditing && (
+                <Button className="mb-3" onClick={() => setIsEditing(true)}>
+                  Edit
+                </Button>
+              )}
+              {canManage && isEditing && (
+                <Form onSubmit={(e) => void save(e)}>
+                  <Form.Group controlId="profile-name">
+                    <Form.Label>Display name</Form.Label>
+                    <Form.Control
+                      value={editName}
+                      onChange={(e) => setName(e.currentTarget.value)}
+                    />
+                  </Form.Group>
+                  <Form.Group controlId="profile-status">
+                    <Form.Label>Status</Form.Label>
+                    <Form.Control
+                      as="select"
+                      value={editStatus}
+                      onChange={(e) => setStatus(e.currentTarget.value)}
+                    >
+                      <option>ACTIVE</option>
+                      <option>INACTIVE</option>
+                      <option>UNKNOWN</option>
+                    </Form.Control>
+                  </Form.Group>
+                  <Form.Group controlId="profile-image">
+                    <Form.Label>Image URL</Form.Label>
+                    <Form.Control
+                      value={editImage}
+                      onChange={(e) => setImage(e.currentTarget.value)}
+                      placeholder="https://…"
+                    />
+                  </Form.Group>
+                  <Form.Group controlId="profile-notes">
+                    <Form.Label>Notes</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      value={editNotes}
+                      onChange={(e) => setNotes(e.currentTarget.value)}
+                    />
+                  </Form.Group>
+                  <Form.Group controlId="profile-location">
+                    <Form.Label>Location</Form.Label>
+                    <Form.Control
+                      value={editLocation}
+                      onChange={(e) => setLocation(e.currentTarget.value)}
+                    />
+                  </Form.Group>
+                  <Form.Group controlId="profile-age">
+                    <Form.Label>Age</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min={18}
+                      max={120}
+                      value={editAge}
+                      onChange={(e) => setAge(e.currentTarget.value)}
+                    />
+                  </Form.Group>
+                  <Button type="submit">Save</Button>{" "}
+                  <Button
+                    variant="secondary"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    Cancel
+                  </Button>
+                </Form>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="detail-body">
+        <div className="performer-body">
+          <Tabs id="cam-model-tabs" defaultActiveKey="aliases" mountOnEnter>
+            <Tab
+              eventKey="aliases"
+              title={`Site aliases (${profile.accounts.length})`}
+            >
+              <Card body className="mb-4">
+                <h2>Site aliases and username history</h2>
+                {!profile.accounts.length ? (
+                  <Alert variant="info">No site accounts yet.</Alert>
+                ) : (
+                  <Table responsive striped>
+                    <thead>
+                      <tr>
+                        <th>Site</th>
+                        <th>Site alias</th>
+                        <th>Dates</th>
+                        <th>Status/source</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profile.accounts.map((a) => (
+                        <tr key={a.id}>
+                          <td>{a.site.name}</td>
+                          <td>
+                            {a.profileURL ? (
+                              <ExternalLink href={a.profileURL}>
+                                {a.handle}
+                              </ExternalLink>
+                            ) : (
+                              a.handle
+                            )}
+                          </td>
+                          <td>
+                            {camModelAccountPeriod(a.validFrom, a.validTo)}
+                          </td>
+                          <td>
+                            <Badge
+                              variant={a.validTo ? "secondary" : "success"}
+                            >
+                              {a.validTo ? "HISTORICAL" : "CURRENT"}
+                            </Badge>{" "}
+                            {a.status} · {a.source}
+                          </td>
+                          <td>
+                            {canManage && a.profileURL && !a.validTo && (
+                              <Button
+                                size="sm"
+                                className="mr-2"
+                                disabled={scrapeState.loading}
+                                onClick={() => void scrapeAccount(a.id)}
+                              >
+                                {scrapeState.loading
+                                  ? "Scraping…"
+                                  : "Scrape public profile"}
+                              </Button>
+                            )}
+                            {canManage && !a.validTo && (
+                              <CamModelConfirmedAction
+                                testID={"cam-model-retire-account-" + a.id}
+                                title="Move username to history?"
+                                description="This marks the current username historical. No identity is merged or deleted."
+                                triggerLabel="Move to history"
+                                confirmLabel="Move username to history"
+                                triggerSize="sm"
+                                triggerVariant="outline-secondary"
+                                onConfirm={() => retireAccount(a.id)}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                )}
+                {canManage &&
+                  (!data?.camModelSites.length ? (
+                    <Alert variant="warning">
+                      No sites are configured yet. Site administration must be
+                      completed before adding an account.
+                    </Alert>
+                  ) : (
+                    <Form inline onSubmit={(e) => void add(e)}>
+                      <Form.Control
+                        as="select"
+                        value={siteID}
+                        onChange={(e) => setSiteID(e.currentTarget.value)}
+                      >
+                        <option value="">Choose site</option>
+                        {data.camModelSites.map((s) => (
+                          <option value={s.id} key={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </Form.Control>
+                      <Form.Control
+                        className="ml-2"
+                        value={handle}
+                        onChange={(e) => setHandle(e.currentTarget.value)}
+                        placeholder="Username / alias"
+                      />
+                      <Button className="ml-2" type="submit">
+                        Add site alias
+                      </Button>
+                    </Form>
+                  ))}
+              </Card>
+            </Tab>
+            <Tab
+              eventKey="social"
+              title={`Social profiles (${profile.socialProfiles.length})`}
+            >
+              <Card
+                body
+                className="mb-4"
+                data-testid="cam-model-social-profiles"
+              >
+                <h2>Social and media profiles</h2>
+                <p className="text-muted">
+                  Typed profile links are separate from cam-site accounts and
+                  retain active/history status and provenance.
+                </p>
+                {!profile.socialProfiles.length ? (
+                  <Alert variant="info">No social or media profiles yet.</Alert>
+                ) : (
+                  profile.socialProfiles.map((social) => (
+                    <div
+                      className="d-flex justify-content-between mb-2"
+                      key={social.id}
+                    >
+                      <span>
+                        {social.icon && (
+                          <span className="mr-1">{social.icon}</span>
+                        )}
+                        <ExternalLink href={social.profileURL}>
+                          {social.handle
+                            ? social.platform + " · @" + social.handle
+                            : social.platform}
+                        </ExternalLink>{" "}
+                        <Badge
+                          variant={social.validTo ? "secondary" : "success"}
+                        >
+                          {social.validTo ? "HISTORICAL" : "ACTIVE"}
+                        </Badge>{" "}
+                        · {social.source}
+                        {social.provenance ? " · " + social.provenance : ""}
+                      </span>
+                      {canManage && !social.validTo && (
+                        <CamModelConfirmedAction
+                          testID={"cam-model-archive-social-" + social.id}
+                          title="Move social/media profile to history?"
+                          description="This archives this social/media profile link while preserving its provenance and history."
+                          triggerLabel="Move to history"
+                          confirmLabel="Move profile to history"
+                          triggerSize="sm"
+                          triggerVariant="outline-secondary"
+                          onConfirm={() => archiveSocial(social.id)}
+                        />
+                      )}
+                    </div>
+                  ))
+                )}
+                {canManage && (
+                  <Form inline onSubmit={(e) => void addSocial(e)}>
+                    <Form.Control
+                      value={socialPlatform}
+                      onChange={(e) => setSocialPlatform(e.currentTarget.value)}
+                      placeholder="Platform (X, Telegram…)"
+                    />
+                    <Form.Control
+                      className="ml-2"
+                      value={socialHandle}
+                      onChange={(e) => setSocialHandle(e.currentTarget.value)}
+                      placeholder="Handle (optional)"
+                    />
+                    <Form.Control
+                      className="ml-2"
+                      value={socialURL}
+                      onChange={(e) => setSocialURL(e.currentTarget.value)}
+                      placeholder="https://profile…"
+                    />
+                    <Button className="ml-2" type="submit">
+                      Add profile
+                    </Button>
+                  </Form>
+                )}
+              </Card>
+            </Tab>
+            {canManage && (
+              <Tab eventKey="finder" title="CamGirlFinder">
+                <CamGirlFinderSearchCard modelID={id} onIngest={refetch} />
+              </Tab>
+            )}
+          </Tabs>
+        </div>
+      </div>
     </div>
   );
 };

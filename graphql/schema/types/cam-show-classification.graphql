@@ -53,9 +53,22 @@ type CamShowLibraryTag {
   name: String!
 }
 
-type CamShowDomainSite { id: ID!, name: String!, icon: String }
-type CamShowDomainLink { id: ID!, linkType: String!, url: String!, label: String }
-type CamShowDomainModel { modelID: ID!, displayName: String!, role: String! }
+type CamShowDomainSite {
+  id: ID!
+  name: String!
+  icon: String
+}
+type CamShowDomainLink {
+  id: ID!
+  linkType: String!
+  url: String!
+  label: String
+}
+type CamShowDomainModel {
+  modelID: ID!
+  displayName: String!
+  role: String!
+}
 
 enum CamShowSortMode {
   DEFAULT
@@ -74,7 +87,12 @@ type CamShowLibraryItem {
   durationSeconds: Float
   durationOverridden: Boolean!
   durationOverrideReason: String
-  details: String
+  rate: Float
+  extras: String
+  request: String
+  rating100: Int
+  rating100Average: Float!
+  rating100Count: Int!
   tags: [CamShowLibraryTag!]!
   sites: [CamShowDomainSite!]!
   links: [CamShowDomainLink!]!
@@ -91,7 +109,20 @@ input CamShowCoreUpdateInput {
   capturedPrecision: String
   durationOverrideSeconds: Float
   durationOverrideReason: String
-  details: String
+  rate: Float
+  extras: String
+  request: String
+}
+
+input CamShowModelAssignmentInput {
+  modelID: ID!
+  role: String!
+}
+
+input CamShowAssociationsInput {
+  id: ID!
+  siteIDs: [ID!]!
+  models: [CamShowModelAssignmentInput!]!
 }
 
 extend type Query {
@@ -102,6 +133,8 @@ extend type Query {
 
 extend type Mutation {
   camShowUpdate(input: CamShowCoreUpdateInput!): CamShowLibraryItem!
+  camShowSetAssociations(input: CamShowAssociationsInput!): CamShowLibraryItem!
+  camShowSetRating(id: ID!, rating100: Int): CamShowLibraryItem!
   camClassificationRuleCreate(
     input: CamClassificationRuleCreateInput!
   ): CamClassificationRule!

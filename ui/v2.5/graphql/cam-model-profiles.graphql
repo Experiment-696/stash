@@ -3,7 +3,11 @@ fragment CamModelSiteData on CamModelSite {
   name
   baseURL
   externalKey
+  icon
   enabled
+}
+mutation CamModelSiteSave($input: CamModelSiteSaveInput!) {
+  camModelSiteSave(input: $input) { ...CamModelSiteData }
 }
 fragment CamModelEvidenceData on CamModelEvidence {
   id
@@ -27,6 +31,8 @@ fragment CamModelProfileData on CamModelProfile {
   displayName
   image
   notes
+  location
+  age
   performerID
   status
   favorite
@@ -71,6 +77,7 @@ query CamModelProfiles($favoritesOnly: Boolean! = false) {
   camModelProfiles(favoritesOnly: $favoritesOnly) {
     ...CamModelProfileData
   }
+  camModelSites { ...CamModelSiteData }
 }
 query CamModelProfile($id: ID!) {
   camModelProfile(id: $id) {
@@ -97,6 +104,11 @@ mutation CamModelAccountAdd($input: CamModelAccountAddInput!) {
 }
 mutation CamModelAccountRetire($id: ID!, $validTo: Timestamp!) {
   camModelAccountRetire(id: $id, validTo: $validTo) {
+    ...CamModelProfileData
+  }
+}
+mutation CamModelProfileScrape($accountID: ID!) {
+  camModelProfileScrape(accountID: $accountID) {
     ...CamModelProfileData
   }
 }

@@ -24,9 +24,10 @@ type camSnapshotSpec struct {
 	keys                 int
 }
 
-const currentCamSnapshotVersion = 94
+const currentCamSnapshotVersion = 97
 
 const legacyCamShowsSnapshotColumns = "id,scene_id,category,site_id,show_date,captured_at,source_url,title_override,notes,external_id,sync_state,created_at,updated_at"
+const schema92CamShowsSnapshotColumns = legacyCamShowsSnapshotColumns + ",show_type,captured_timezone,captured_precision,duration_override_seconds,duration_override_reason"
 
 type camSnapshotCompatibilityBoundary struct {
 	version   int
@@ -41,12 +42,14 @@ var camSnapshotCompatibility = []camSnapshotCompatibilityBoundary{
 	{version: 91, lastTable: "cam_model_profile_provenance"},
 	{version: 92, lastTable: "cam_model_social_profiles"},
 	{version: 94, lastTable: "cam_completed_recording_audits"},
+	{version: 96, lastTable: "cam_show_user_state"},
+	{version: 97, lastTable: "cam_show_user_state"},
 }
 
 var camSnapshotSpecs = []camSnapshotSpec{
 	{"cam_sites", "id,name,base_url,external_key,icon,enabled,created_at,updated_at", "id", 1},
-	{"cam_models", "id,display_name,image,notes,status,performer_id,created_at,updated_at", "id", 1},
-	{"cam_shows", legacyCamShowsSnapshotColumns + ",show_type,captured_timezone,captured_precision,duration_override_seconds,duration_override_reason", "id", 1},
+	{"cam_models", "id,display_name,image,notes,status,performer_id,created_at,updated_at,location,age", "id", 1},
+	{"cam_shows", schema92CamShowsSnapshotColumns + ",rate,extras,request", "id", 1},
 	{"cam_show_models", "show_id,model_id,billing_order,participation_role", "show_id,model_id", 2},
 	{"cam_model_accounts", "id,model_id,site_id,handle,normalized_handle,profile_url,external_account_id,status,first_seen_at,last_seen_at,valid_from,valid_to,last_synced_at,source,confidence,created_at,updated_at", "id", 1},
 	{"cam_model_aliases", "id,model_id,account_id,site_id,alias,normalized_alias,valid_from,valid_to,is_current,source,confidence,last_verified_at,created_at,updated_at", "id", 1},
@@ -60,6 +63,7 @@ var camSnapshotSpecs = []camSnapshotSpec{
 	{"cam_model_social_profiles", "id,model_id,platform,icon,handle,url,status,valid_from,valid_to,source,confidence,provenance,created_at,updated_at", "id", 1},
 	{"cam_completed_recording_imports", "id,scene_id,show_id,site_id,model_id,configured_root_id,relative_path_hash,fingerprint_size,fingerprint_mtime_ns,fingerprint_mode,fingerprint_device,fingerprint_inode,parser_version,captured_at,captured_timezone,captured_precision,match_state,outcome,created_at", "id", 1},
 	{"cam_completed_recording_audits", "id,actor_user_id,preview_id,candidate_id,relative_path_hash,outcome,review_reason_code,redacted_reason,scene_id,site_id,model_id,created_at", "id", 1},
+	{"cam_show_user_state", "user_id,show_id,rating,updated_at", "user_id,show_id", 2},
 }
 
 func (s *CamShowStore) ExportSnapshot(ctx context.Context) (*CamSnapshot, error) {
@@ -109,6 +113,20 @@ func camSnapshotSpecsForVersion(version int) ([]camSnapshotSpec, error) {
 	for index, spec := range camSnapshotSpecs {
 		if spec.name == lastTable {
 			ret := append([]camSnapshotSpec(nil), camSnapshotSpecs[:index+1]...)
+			if version < 97 {
+				for i := range ret {
+					if ret[i].name == "cam_models" {
+						ret[i].columns = "id,display_name,image,notes,status,performer_id,created_at,updated_at"
+					}
+				}
+			}
+			if version < 96 {
+				for i := range ret {
+					if ret[i].name == "cam_shows" {
+						ret[i].columns = schema92CamShowsSnapshotColumns
+					}
+				}
+			}
 			if version < 92 {
 				for i := range ret {
 					if ret[i].name == "cam_shows" {

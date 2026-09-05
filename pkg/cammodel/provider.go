@@ -8,17 +8,17 @@ import (
 	"time"
 )
 
-// ProfileObservation is provider evidence, never local merge authority.
+// ProfileObservation is a metadata candidate returned by a discovery provider.
 type ProfileObservation struct {
 	Provider, EvidenceKey, Platform, Username string
-	ProviderRecordID, SourceURL               *string
+	ProviderRecordID, SourceURL, ImageURL     *string
 	ObservedAt                                time.Time
 	PayloadJSON                               string
 	Confidence                                *float64
 }
 
-// DiscoveryProvider covers review-first profile discovery (for example,
-// CamGirlFinder). Implementations must not directly merge local models.
+// DiscoveryProvider searches external profile metadata. Implementations do not
+// persist data; the caller explicitly selects which result to apply.
 type DiscoveryProvider interface {
 	Key() string
 	Discover(context.Context, string) ([]ProfileObservation, error)
