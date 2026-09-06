@@ -31,7 +31,7 @@ interface IStudioEditPanel {
   studio: Partial<GQL.StudioDataFragment>;
   onSubmit: (studio: GQL.StudioCreateInput, andNew?: boolean) => Promise<void>;
   onCancel: () => void;
-  onDelete: () => void;
+  onDelete?: (() => void) | undefined;
   setImage: (image?: string | null) => void;
   setEncodingImage: (loading: boolean) => void;
 }

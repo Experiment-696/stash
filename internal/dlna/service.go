@@ -109,6 +109,8 @@ type Service struct {
 	startTime  *time.Time
 	stopTimer  *time.Timer
 	stopTime   *time.Time
+
+	serveInitHook func()
 }
 
 func (s *Service) getInterfaces() ([]net.Interface, error) {
@@ -202,7 +204,9 @@ func (s *Service) init() error {
 		StallEventSubscribe: dmsConfig.StallEventSubscribe,
 		NotifyInterval:      dmsConfig.NotifyInterval,
 		VideoSortOrder:      dmsConfig.VideoSortOrder,
+		serveInitHook:       s.serveInitHook,
 	}
+	s.server.initLifecycle()
 
 	return nil
 }

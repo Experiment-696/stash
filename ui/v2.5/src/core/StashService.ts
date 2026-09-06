@@ -17,11 +17,20 @@ import * as GQL from "./generated-graphql";
 import { createClient } from "./createClient";
 import { Client } from "graphql-ws";
 import { useEffect, useState } from "react";
+import { clearNormalizedAccountCache } from "./accountCache";
 
 const { client, wsClient, cache: clientCache } = createClient();
 
 export const getClient = () => client;
 export const getWSClient = () => wsClient;
+
+export function clearAccountSessionCache() {
+  // Stop active observers/subscriptions before clearing so an in-flight result
+  // from the old account cannot repopulate personalized normalized fields.
+  client.stop();
+  wsClient.dispose();
+  clearNormalizedAccountCache(clientCache);
+}
 
 export function useWSState(ws: Client) {
   const [state, setState] = useState<"connecting" | "connected" | "error">(
@@ -515,6 +524,13 @@ export const useFindSavedFilters = (mode?: GQL.FilterMode) =>
     variables: { mode },
   });
 
+export const useFindDefaultFilter = (mode: GQL.FilterMode, skip = false) =>
+  GQL.useFindDefaultFilterQuery({
+    variables: { mode },
+    skip,
+    fetchPolicy: "no-cache",
+  });
+
 export const queryFindSubFolders = (id: string, excludeZipFolders?: boolean) =>
   client.query<GQL.FindFoldersForQueryQuery>({
     query: GQL.FindFoldersForQueryDocument,
@@ -627,6 +643,8 @@ export const useSceneUpdate = () =>
       evictQueries(cache, sceneMutationImpactedQueries);
     },
   });
+
+export const useSceneSetRating = () => GQL.useSceneSetRatingMutation();
 
 export const useBulkSceneUpdate = () =>
   GQL.useBulkSceneUpdateMutation({
@@ -1092,7 +1110,7 @@ export const useSceneDecrementPlayCount = () =>
 
 export const useSceneResetPlayCount = () =>
   GQL.useSceneResetPlayCountMutation({
-    update(cache, _result, { variables }) {
+    update(cache, result, { variables }) {
       if (!variables) return;
 
       let lastPlayCount = 0;
@@ -1530,7 +1548,6 @@ const sceneMarkerMutationImpactedQueries = [
   GQL.FindSceneMarkersDocument, // various filters
   GQL.MarkerStringsDocument, // marker list
   GQL.FindSceneMarkerTagsDocument, // marker tag list
-  GQL.FindStudiosDocument, // filter/sort by marker count
   GQL.FindTagsDocument, // filter by marker count
 ];
 
@@ -1865,6 +1882,11 @@ export const usePerformerUpdate = () =>
       evictQueries(cache, performerMutationImpactedQueries);
     },
   });
+
+export const usePerformerSetFavorite = () =>
+  GQL.usePerformerSetFavoriteMutation();
+
+export const usePerformerSetRating = () => GQL.usePerformerSetRatingMutation();
 
 export const useBulkPerformerUpdate = (input: GQL.BulkPerformerUpdateInput) =>
   GQL.useBulkPerformerUpdateMutation({
@@ -2233,6 +2255,23 @@ export const useSaveFilter = () => {
   return saveFilter;
 };
 
+export const useSetDefaultFilter = () => {
+  const [setDefaultFilter] = GQL.useSetDefaultFilterMutation();
+  return (filter: ListFilterModel) => {
+    const copy = filter.clone();
+    return setDefaultFilter({
+      variables: {
+        input: {
+          mode: copy.mode,
+          find_filter: copy.makeFindFilter(),
+          object_filter: copy.makeSavedFilter(),
+          ui_options: copy.makeSavedUIOptions(),
+        },
+      },
+    });
+  };
+};
+
 export const useSavedFilterDestroy = () =>
   GQL.useDestroySavedFilterMutation({
     update(cache, result, { variables }) {
@@ -2265,9 +2304,6 @@ export const mutateDeleteFiles = (ids: string[]) =>
       }
 
       evictQueries(cache, [
-        GQL.FindSceneDocument, // files list on scene detail
-        GQL.FindImageDocument, // files list on image detail
-        GQL.FindGalleryDocument, // files list on gallery detail
         GQL.FindScenesDocument, // filter by file count
         GQL.FindImagesDocument, // filter by file count
         GQL.FindGalleriesDocument, // filter by file count
@@ -2290,7 +2326,16 @@ export const mutateRevealFolderInFileManager = (id: string) =>
 
 /// Scrapers
 
-export const useListSceneScrapers = () => GQL.useListSceneScrapersQuery();
+// These query families expose operational or installation-level state and are
+// Admin-only in the authorization policy. Keep the role check in the shared
+// wrappers so a new UI callsite cannot accidentally issue a forbidden request.
+const useAdminOnlySkip = (skip = false) => {
+  const { data, loading } = GQL.useMeQuery({ skip });
+  return skip || loading || data?.me.role !== "ADMIN";
+};
+
+export const useListSceneScrapers = (skip = false) =>
+  GQL.useListSceneScrapersQuery({ skip: useAdminOnlySkip(skip) });
 
 export const queryScrapeScene = (
   source: GQL.ScraperSourceInput,
@@ -2362,8 +2407,8 @@ export const stashBoxSceneBatchQuery = (
     }
   );
 
-export const useListPerformerScrapers = () =>
-  GQL.useListPerformerScrapersQuery();
+export const useListPerformerScrapers = (skip = false) =>
+  GQL.useListPerformerScrapersQuery({ skip: useAdminOnlySkip(skip) });
 
 export const useScrapePerformerList = (scraperId: string, q: string) =>
   GQL.useScrapeSinglePerformerQuery({
@@ -2497,7 +2542,8 @@ export const mutateStashBoxBatchTagTag = (input: GQL.StashBoxBatchTagInput) =>
     variables: { input },
   });
 
-export const useListGroupScrapers = () => GQL.useListGroupScrapersQuery();
+export const useListGroupScrapers = (skip = false) =>
+  GQL.useListGroupScrapersQuery({ skip: useAdminOnlySkip(skip) });
 
 export const queryScrapeGroupURL = (url: string) =>
   client.query<GQL.ScrapeGroupUrlQuery>({
@@ -2506,9 +2552,11 @@ export const queryScrapeGroupURL = (url: string) =>
     fetchPolicy: "network-only",
   });
 
-export const useListGalleryScrapers = () => GQL.useListGalleryScrapersQuery();
+export const useListGalleryScrapers = (skip = false) =>
+  GQL.useListGalleryScrapersQuery({ skip: useAdminOnlySkip(skip) });
 
-export const useListImageScrapers = () => GQL.useListImageScrapersQuery();
+export const useListImageScrapers = (skip = false) =>
+  GQL.useListImageScrapersQuery({ skip: useAdminOnlySkip(skip) });
 
 export const queryScrapeGallery = (scraperId: string, galleryId: string) =>
   client.query<GQL.ScrapeSingleGalleryQuery>({
@@ -2570,9 +2618,11 @@ export const mutateSubmitStashBoxPerformerDraft = (
 
 /// Configuration
 
-export const useConfiguration = () => GQL.useConfigurationQuery();
+export const useConfiguration = (skip = false) =>
+  GQL.useConfigurationQuery({ skip: useAdminOnlySkip(skip) });
 
-export const usePlugins = () => GQL.usePluginsQuery();
+export const usePlugins = (skip = false) =>
+  GQL.usePluginsQuery({ skip: useAdminOnlySkip(skip) });
 
 export const usePluginTasks = () => GQL.usePluginTasksQuery();
 
@@ -2591,9 +2641,10 @@ export const useDLNAStatus = () =>
     fetchPolicy: "no-cache",
   });
 
-export const useJobQueue = () =>
+export const useJobQueue = (skip = false) =>
   GQL.useJobQueueQuery({
     fetchPolicy: "no-cache",
+    skip: useAdminOnlySkip(skip),
   });
 
 export const useLogs = () =>
@@ -2608,13 +2659,18 @@ export const queryLogs = () =>
   });
 
 export const useSystemStatus = () => GQL.useSystemStatusQuery();
+export const useMigrationStatus = () =>
+  GQL.useMigrationStatusQuery({
+    fetchPolicy: "no-cache",
+  });
 export const refetchSystemStatus = () => {
   client.refetchQueries({
     include: [GQL.SystemStatusDocument],
   });
 };
 
-export const useJobsSubscribe = () => GQL.useJobsSubscribeSubscription();
+export const useJobsSubscribe = (skip = false) =>
+  GQL.useJobsSubscribeSubscription({ skip: useAdminOnlySkip(skip) });
 
 export const useLoggingSubscribe = () => GQL.useLoggingSubscribeSubscription();
 
@@ -2789,10 +2845,23 @@ export const mutateSetup = (input: GQL.SetupInput) =>
     },
   });
 
-export const mutateMigrate = (input: GQL.MigrateInput) =>
+export const mutateBootstrapFirstAdmin = (
+  input: GQL.FirstAdminBootstrapInput
+) =>
+  client.mutate<GQL.BootstrapFirstAdminMutation>({
+    mutation: GQL.BootstrapFirstAdminDocument,
+    variables: { input },
+  });
+
+export const mutateBootstrapConfigureUI = (lastNoteSeen: string) =>
+  client.mutate<GQL.BootstrapConfigureUiMutation>({
+    mutation: GQL.BootstrapConfigureUiDocument,
+    variables: { lastNoteSeen },
+  });
+
+export const mutateMigrate = () =>
   client.mutate<GQL.MigrateMutation>({
     mutation: GQL.MigrateDocument,
-    variables: { input },
   });
 
 // migrate now runs asynchronously, so we need to evict queries

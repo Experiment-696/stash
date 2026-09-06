@@ -14,8 +14,8 @@ interface IProps {
   onSave: () => void;
   onSaveAndNew?: () => void;
   saveDisabled?: boolean;
-  onDelete: () => void;
-  onAutoTag?: () => void;
+  onDelete?: (() => void) | undefined;
+  onAutoTag?: (() => void) | undefined;
   autoTagDisabled?: boolean;
   onImageChange: (event: React.FormEvent<HTMLInputElement>) => void;
   onBackImageChange?: (event: React.FormEvent<HTMLInputElement>) => void;
@@ -24,7 +24,7 @@ interface IProps {
   onClearImage?: () => void;
   onClearBackImage?: () => void;
   acceptSVG?: boolean;
-  customButtons?: JSX.Element;
+  customButtons?: JSX.Element | undefined;
   classNames?: string;
   children?: JSX.Element | JSX.Element[];
 }
@@ -87,7 +87,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteButton() {
-    if (props.isNew || props.isEditing) return;
+    if (props.isNew || props.isEditing || !props.onDelete) return;
     return (
       <Button
         variant="danger"
@@ -142,6 +142,7 @@ export const DetailsEditNavbar: React.FC<IProps> = (props: IProps) => {
   }
 
   function renderDeleteAlert() {
+    if (!props.onDelete) return;
     return (
       <Modal show={isDeleteAlertOpen}>
         <Modal.Body>

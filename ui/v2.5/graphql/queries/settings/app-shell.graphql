@@ -1,0 +1,49 @@
+query AppShellConfiguration {
+  appShellConfiguration {
+    status
+    interface {
+      sfwContentMode
+      disableCustomizations
+      language
+      imageLightbox {
+        slideshowDelay
+        displayMode
+        scaleUp
+        resetZoomOnNav
+        scrollMode
+        scrollAttemptsBeforeChange
+        disableAnimation
+      }
+      funscriptOffset
+      useStashHostedFunscript
+    }
+    ui {
+      title
+      lastNoteSeen
+      abbreviateCounters
+      compactExpandedDetails
+      showAllDetails
+      enableMovieBackgroundImage
+      enablePerformerBackgroundImage
+      enableStudioBackgroundImage
+      enableTagBackgroundImage
+      showChildStudioContent
+      showChildTagContent
+      showLinksOnPerformerCard
+      imageWallOptions
+      alwaysStartFromBeginning
+      disableMobileMediaAutoRotateEnabled
+      enableChromecast
+      minimumPlayPercent
+      showAbLoopControls
+      showRangeMarkers
+      trackActivity
+      vrTag
+      taskDefaults
+      tableColumns
+      frontPageContent
+      editing
+      troubleshootingMode
+    }
+  }
+}

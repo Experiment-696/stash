@@ -7,6 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestDetachedProgressSupportsSynchronousAdministrativeTask(t *testing.T) {
+	p := &Progress{}
+	p.SetTotal(2)
+	p.ExecuteTask("migration", func() { p.Increment() })
+	p.Increment()
+}
+
 func createProgress(m *Manager, j *Job) Progress {
 	return Progress{
 		updater: &updater{

@@ -147,7 +147,7 @@ func (t *SceneIdentifier) getOptions(source ScraperSource) MetadataOptions {
 	if source.Options.IncludeMalePerformers != nil {
 		options.IncludeMalePerformers = source.Options.IncludeMalePerformers
 	}
-	if len(source.Options.PerformerGenders) > 0 {
+	if source.Options.PerformerGenders != nil {
 		options.PerformerGenders = source.Options.PerformerGenders
 	}
 	if source.Options.SkipMultipleMatches != nil {
@@ -209,7 +209,7 @@ func (t *SceneIdentifier) getSceneUpdater(ctx context.Context, s *models.Scene, 
 
 	// Determine allowed genders for performer filtering
 	var allowedGenders []models.GenderEnum
-	if len(options.PerformerGenders) > 0 {
+	if options.PerformerGenders != nil {
 		// New field takes precedence
 		allowedGenders = options.PerformerGenders
 	} else if options.IncludeMalePerformers != nil && !*options.IncludeMalePerformers {

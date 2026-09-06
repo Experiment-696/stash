@@ -1,3 +1,52 @@
+type BootstrapConfiguration {
+  status: SystemStatusEnum!
+  os: String!
+}
+
+type AppShellConfiguration {
+  status: SystemStatusEnum!
+  interface: AppShellInterface!
+  ui: AppShellUI!
+}
+
+type AppShellInterface {
+  sfwContentMode: Boolean!
+  disableCustomizations: Boolean!
+  language: String!
+  imageLightbox: ConfigImageLightboxResult!
+  funscriptOffset: Int
+  useStashHostedFunscript: Boolean
+}
+
+type AppShellUI {
+  title: Any
+  lastNoteSeen: Any
+  abbreviateCounters: Any
+  compactExpandedDetails: Any
+  showAllDetails: Any
+  enableMovieBackgroundImage: Any
+  enablePerformerBackgroundImage: Any
+  enableStudioBackgroundImage: Any
+  enableTagBackgroundImage: Any
+  showChildStudioContent: Any
+  showChildTagContent: Any
+  showLinksOnPerformerCard: Any
+  imageWallOptions: Any
+  alwaysStartFromBeginning: Any
+  disableMobileMediaAutoRotateEnabled: Any
+  enableChromecast: Any
+  minimumPlayPercent: Any
+  showAbLoopControls: Any
+  showRangeMarkers: Any
+  trackActivity: Any
+  vrTag: Any
+  taskDefaults: Any
+  tableColumns: Any
+  frontPageContent: Any
+  editing: Any
+  troubleshootingMode: Any
+}
+
 input SetupInput {
   "Empty to indicate $HOME/.stash/config.yml default"
   configLocation: String!
@@ -13,9 +62,6 @@ input SetupInput {
   storeBlobsInDatabase: Boolean!
   "Empty to indicate default - only applicable if storeBlobsInDatabase is false"
   blobsLocation: String!
-
-  initialUsername: String
-  initialPassword: String
 }
 
 enum StreamingResolutionEnum {

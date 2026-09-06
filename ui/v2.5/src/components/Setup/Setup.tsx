@@ -9,9 +9,12 @@ import {
   InputGroup,
 } from "react-bootstrap";
 import * as GQL from "src/core/generated-graphql";
-import { mutateSetup, useSystemStatus } from "src/core/StashService";
+import {
+  mutateBootstrapFirstAdmin,
+  mutateBootstrapConfigureUI,
+  mutateSetup,
+} from "src/core/StashService";
 import { useHistory } from "react-router-dom";
-import { useConfigurationContext } from "src/hooks/Config";
 import StashConfiguration from "../Settings/StashConfiguration";
 import { Icon } from "../Shared/Icon";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
@@ -20,17 +23,21 @@ import { FolderSelectDialog } from "../Shared/FolderSelect/FolderSelectDialog";
 import {
   faEllipsisH,
   faExclamationTriangle,
-  faEye,
-  faEyeSlash,
+  faQuestionCircle,
 } from "@fortawesome/free-solid-svg-icons";
+import { releaseNotes } from "src/docs/en/ReleaseNotes";
 import { ExternalLink } from "../Shared/ExternalLink";
 
 interface ISetupContextState {
-  configuration: GQL.ConfigDataFragment;
+  configuration?: GQL.ConfigDataFragment;
   systemStatus: GQL.SystemStatusQuery;
 
   setupState: Partial<GQL.SetupInput>;
   setupError: string | undefined;
+  adminUsername: string;
+  adminPassword: string;
+  setAdminUsername: (value: string) => void;
+  setAdminPassword: (value: string) => void;
 
   pathJoin: (...paths: string[]) => string;
   pathDir(path: string): string;
@@ -49,7 +56,7 @@ const useSetupContext = () => {
   const context = React.useContext(SetupStateContext);
 
   if (context === null) {
-    throw new Error("useSetupContext must be used within a SetupContext");
+    throw new Error("useSettings must be used within a SettingsContext");
   }
 
   return context;
@@ -59,8 +66,22 @@ const SetupContext: React.FC<{
   setupState: Partial<GQL.SetupInput>;
   setupError: string | undefined;
   systemStatus: GQL.SystemStatusQuery;
-  configuration: GQL.ConfigDataFragment;
-}> = ({ setupState, setupError, systemStatus, configuration, children }) => {
+  configuration?: GQL.ConfigDataFragment;
+  adminUsername: string;
+  adminPassword: string;
+  setAdminUsername: (value: string) => void;
+  setAdminPassword: (value: string) => void;
+}> = ({
+  setupState,
+  setupError,
+  systemStatus,
+  configuration,
+  adminUsername,
+  adminPassword,
+  setAdminUsername,
+  setAdminPassword,
+  children,
+}) => {
   const status = systemStatus?.systemStatus;
 
   const windows = status?.os === "windows";
@@ -104,6 +125,10 @@ const SetupContext: React.FC<{
     workingDir,
     setupState,
     setupError,
+    adminUsername,
+    adminPassword,
+    setAdminUsername,
+    setAdminPassword,
   };
 
   return (
@@ -117,6 +142,63 @@ interface IWizardStep {
   next: (input?: Partial<GQL.SetupInput>) => void;
   goBack: () => void;
 }
+
+const AdminAccountStep: React.FC<IWizardStep> = ({ goBack, next }) => {
+  const { adminUsername, adminPassword, setAdminUsername, setAdminPassword } =
+    useSetupContext();
+  const [confirmation, setConfirmation] = useState("");
+  const usernameValid = adminUsername.trim().length > 0;
+  const passwordValid =
+    adminPassword.length >= 8 && adminPassword === confirmation;
+  return (
+    <section>
+      <h2 className="mb-3">Create the first administrator</h2>
+      <p>
+        This account controls users and server configuration. The password is
+        sent once and is never stored by the setup page.
+      </p>
+      <Form.Group controlId="setup-admin-username">
+        <Form.Label>Username</Form.Label>
+        <Form.Control
+          value={adminUsername}
+          autoComplete="username"
+          onChange={(e) => setAdminUsername(e.currentTarget.value)}
+        />
+      </Form.Group>
+      <Form.Group controlId="setup-admin-password">
+        <Form.Label>Password</Form.Label>
+        <Form.Control
+          type="password"
+          value={adminPassword}
+          autoComplete="new-password"
+          onChange={(e) => setAdminPassword(e.currentTarget.value)}
+        />
+        <Form.Text muted>Use at least 8 characters.</Form.Text>
+      </Form.Group>
+      <Form.Group controlId="setup-admin-password-confirmation">
+        <Form.Label>Confirm password</Form.Label>
+        <Form.Control
+          type="password"
+          value={confirmation}
+          autoComplete="new-password"
+          onChange={(e) => setConfirmation(e.currentTarget.value)}
+        />
+      </Form.Group>
+      <div className="mt-4 d-flex justify-content-between">
+        <Button variant="secondary" onClick={goBack}>
+          Back
+        </Button>
+        <Button
+          variant="primary"
+          disabled={!usernameValid || !passwordValid}
+          onClick={() => next()}
+        >
+          Next
+        </Button>
+      </div>
+    </section>
+  );
+};
 
 const WelcomeSpecificConfig: React.FC<IWizardStep> = ({ next }) => {
   const { systemStatus } = useSetupContext();
@@ -668,143 +750,6 @@ const StashExclusions: React.FC<{ stash: GQL.StashConfig }> = ({ stash }) => {
   return <span>{`(excludes ${excludes.join(" and ")})`}</span>;
 };
 
-function validateUsername(username: string) {
-  if (username.trim() !== username) {
-    return false;
-  }
-
-  return true;
-}
-
-function validatePassword(username: string, password: string) {
-  if (!username) return true;
-
-  if (!password.length) return false;
-  return true;
-}
-
-const PasswordField: React.FC<{
-  password: string;
-  setPassword: React.Dispatch<React.SetStateAction<string>>;
-  isInvalid?: boolean;
-}> = ({ password, setPassword, isInvalid }) => {
-  const [showPassword, setShowPassword] = useState(false);
-  const intl = useIntl();
-
-  const type = showPassword ? "text" : "password";
-  const hideShowTextID = showPassword ? "actions.hide" : "actions.show";
-  const icon = showPassword ? faEyeSlash : faEye;
-
-  return (
-    <div className="password-field-group">
-      <Form.Control
-        className="text-input"
-        type={type}
-        placeholder={intl.formatMessage({
-          id: "login.password",
-        })}
-        value={password}
-        onChange={(e) => setPassword(e.currentTarget.value)}
-        isInvalid={isInvalid}
-      />
-      <Button
-        variant="secondary"
-        onClick={() => setShowPassword(!showPassword)}
-        title={intl.formatMessage({ id: hideShowTextID })}
-        className="show-password-button"
-      >
-        <Icon icon={icon} />
-      </Button>
-      <Form.Control.Feedback type="invalid">
-        {isInvalid
-          ? intl.formatMessage({
-              id: "setup.credentials.password_invalid",
-            })
-          : null}
-      </Form.Control.Feedback>
-    </div>
-  );
-};
-
-const CredentialsStep: React.FC<IWizardStep> = ({ goBack, next }) => {
-  const { setupState } = useSetupContext();
-  const intl = useIntl();
-
-  const [username, setUsername] = useState(setupState.initialUsername || "");
-  const [password, setPassword] = useState(setupState.initialPassword ?? "");
-  const usernameValid = validateUsername(username);
-  const passwordValid = validatePassword(username, password);
-  const valid = usernameValid && passwordValid;
-
-  function onNext() {
-    const input: Partial<GQL.SetupInput> = {
-      initialUsername: username.trim() === "" ? undefined : username,
-      initialPassword: password === "" ? undefined : password,
-    };
-    next(input);
-  }
-
-  return (
-    <>
-      <section>
-        <h2 className="mb-3">
-          <FormattedMessage id="setup.credentials.heading" />
-        </h2>
-        <p>
-          <FormattedMessage id="setup.credentials.description" />
-        </p>
-
-        <Form.Group controlId="username">
-          <Form.Label>
-            <FormattedMessage id="login.username" />:
-          </Form.Label>
-          <Form.Control
-            className="text-input"
-            placeholder={intl.formatMessage({
-              id: "login.username",
-            })}
-            value={username}
-            onChange={(e) => setUsername(e.currentTarget.value)}
-            isInvalid={!usernameValid}
-          />
-          <Form.Control.Feedback type="invalid">
-            {!usernameValid
-              ? intl.formatMessage({ id: "setup.credentials.username_invalid" })
-              : null}
-          </Form.Control.Feedback>
-        </Form.Group>
-        <Form.Group controlId="password">
-          <Form.Label>
-            <FormattedMessage id="login.password" />:
-          </Form.Label>
-          <Form.Group id="password">
-            <PasswordField
-              password={password}
-              setPassword={setPassword}
-              isInvalid={!passwordValid}
-            />
-          </Form.Group>
-        </Form.Group>
-      </section>
-
-      <section className="mt-5">
-        <div className="d-flex justify-content-center">
-          <Button variant="secondary mx-2 p-5" onClick={() => goBack()}>
-            <FormattedMessage id="actions.previous_action" />
-          </Button>
-          <Button
-            variant="primary mx-2 p-5"
-            onClick={() => onNext()}
-            disabled={!valid}
-          >
-            <FormattedMessage id="actions.next_action" />
-          </Button>
-        </div>
-      </section>
-    </>
-  );
-};
-
 const ConfirmStep: React.FC<IWizardStep> = ({ goBack, next }) => {
   const {
     configuration,
@@ -827,8 +772,6 @@ const ConfirmStep: React.FC<IWizardStep> = ({ goBack, next }) => {
     cacheLocation,
     blobsLocation,
     storeBlobsInDatabase,
-    initialUsername,
-    initialPassword,
   } = setupState;
 
   const overrideDatabase = configuration?.general.databasePath;
@@ -922,33 +865,7 @@ const ConfirmStep: React.FC<IWizardStep> = ({ goBack, next }) => {
             </dd>
           </dl>
         )}
-        {initialUsername?.length && initialPassword?.length && (
-          <>
-            <dl>
-              <dt>
-                <FormattedMessage id="login.username" />
-              </dt>
-              <dd>
-                <code>{initialUsername}</code>
-              </dd>
-            </dl>
-            <dl>
-              <dt>
-                <FormattedMessage id="login.password" />
-              </dt>
-              <dd>
-                <code>********</code>
-              </dd>
-            </dl>
-          </>
-        )}
       </section>
-      {initialUsername?.length && initialPassword?.length && (
-        <p className="lead">
-          <Icon icon={faExclamationTriangle} className="text-warning" />
-          <FormattedMessage id="setup.confirm.password_set_warning" />
-        </p>
-      )}
       <section className="mt-5">
         <div className="d-flex justify-content-center">
           <Button variant="secondary mx-2 p-5" onClick={() => goBack()}>
@@ -1006,59 +923,273 @@ const ErrorStep: React.FC<{ error: string; goBack: () => void }> = ({
   );
 };
 
+const SuccessStep: React.FC<{}> = () => {
+  const intl = useIntl();
+  const history = useHistory();
+
+  const [mutateDownloadFFMpeg] = GQL.useDownloadFfMpegMutation();
+
+  const [downloadFFmpeg, setDownloadFFmpeg] = useState(true);
+
+  const { systemStatus } = useSetupContext();
+  const status = systemStatus?.systemStatus;
+
+  function onFinishClick() {
+    if ((!status?.ffmpegPath || !status?.ffprobePath) && downloadFFmpeg) {
+      mutateDownloadFFMpeg();
+    }
+
+    history.push("/settings?tab=library");
+  }
+
+  return (
+    <>
+      <section>
+        <h2>
+          <FormattedMessage id="setup.success.your_system_has_been_created" />
+        </h2>
+        <p>
+          <FormattedMessage id="setup.success.next_config_step_one" />
+        </p>
+        <p>
+          <FormattedMessage
+            id="setup.success.next_config_step_two"
+            values={{
+              code: (chunks: string) => <code>{chunks}</code>,
+              localized_task: intl.formatMessage({
+                id: "config.categories.tasks",
+              }),
+              localized_scan: intl.formatMessage({ id: "actions.scan" }),
+            }}
+          />
+        </p>
+        {!status?.ffmpegPath || !status?.ffprobePath ? (
+          <>
+            <Alert variant="warning text-center">
+              <FormattedMessage
+                id="setup.success.missing_ffmpeg"
+                values={{
+                  code: (chunks: string) => <code>{chunks}</code>,
+                }}
+              />
+            </Alert>
+            <p>
+              <Form.Check
+                id="download-ffmpeg"
+                checked={downloadFFmpeg}
+                label={intl.formatMessage({
+                  id: "setup.success.download_ffmpeg",
+                })}
+                onChange={() => setDownloadFFmpeg(!downloadFFmpeg)}
+              />
+            </p>
+          </>
+        ) : null}
+      </section>
+      <section>
+        <h3>
+          <FormattedMessage id="setup.success.getting_help" />
+        </h3>
+        <p>
+          <FormattedMessage
+            id="setup.success.in_app_manual_explained"
+            values={{ icon: <Icon icon={faQuestionCircle} /> }}
+          />
+        </p>
+        <p>
+          <FormattedMessage
+            id="setup.success.help_links"
+            values={{ discordLink: DiscordLink, githubLink: GithubLink }}
+          />
+        </p>
+      </section>
+      <section>
+        <h3>
+          <FormattedMessage id="setup.success.support_us" />
+        </h3>
+        <p>
+          <FormattedMessage
+            id="setup.success.open_collective"
+            values={{
+              open_collective_link: (
+                <ExternalLink href="https://opencollective.com/stashapp">
+                  Open Collective
+                </ExternalLink>
+              ),
+            }}
+          />
+        </p>
+        <p>
+          <FormattedMessage id="setup.success.welcome_contrib" />
+        </p>
+      </section>
+      <section>
+        <p className="lead text-center">
+          <FormattedMessage id="setup.success.thanks_for_trying_stash" />
+        </p>
+      </section>
+      <section className="mt-5">
+        <div className="d-flex justify-content-center">
+          <Button variant="success mx-2 p-5" onClick={() => onFinishClick()}>
+            <FormattedMessage id="actions.finish" />
+          </Button>
+        </div>
+      </section>
+    </>
+  );
+};
+
 const FinishStep: React.FC<IWizardStep> = ({ goBack }) => {
   const { setupError } = useSetupContext();
 
-  if (!setupError) {
-    throw new Error(
-      "FinishStep should only be shown when there is a setupError"
-    );
+  if (setupError !== undefined) {
+    return <ErrorStep error={setupError} goBack={goBack} />;
   }
 
-  return <ErrorStep error={setupError} goBack={goBack} />;
+  return <SuccessStep />;
+};
+
+const readSavedSetupState = (): Partial<GQL.SetupInput> => {
+  const saved = sessionStorage.getItem("stash.bootstrap.setup");
+  if (!saved) return {};
+
+  try {
+    return JSON.parse(saved) as Partial<GQL.SetupInput>;
+  } catch {
+    sessionStorage.removeItem("stash.bootstrap.setup");
+    return {};
+  }
 };
 
 export const Setup: React.FC = () => {
   const intl = useIntl();
-  const { configuration } = useConfigurationContext();
-
+  const history = useHistory();
   const {
-    data: systemStatus,
+    data: bootstrapData,
     loading: statusLoading,
     error: statusError,
-  } = useSystemStatus();
+    refetch: refetchBootstrapConfiguration,
+  } = GQL.useBootstrapConfigurationQuery({ fetchPolicy: "no-cache" });
+  const systemStatus: GQL.SystemStatusQuery | undefined = bootstrapData
+    ? {
+        systemStatus: {
+          status: bootstrapData.bootstrapConfiguration.status,
+          os: bootstrapData.bootstrapConfiguration.os,
+          workingDir: ".",
+          homeDir: "",
+          databaseSchema: null,
+          databasePath: null,
+          appSchema: 0,
+          configPath: null,
+          ffmpegPath: null,
+          ffprobePath: null,
+        },
+      }
+    : undefined;
+  const configuration: GQL.ConfigDataFragment | undefined = undefined;
 
   const [step, setStep] = useState(0);
-  const [setupInput, setSetupInput] = useState<Partial<GQL.SetupInput>>({});
+  const [setupInput, setSetupInput] =
+    useState<Partial<GQL.SetupInput>>(readSavedSetupState);
   const [creating, setCreating] = useState(false);
   const [setupError, setSetupError] = useState<string | undefined>(undefined);
-
-  const history = useHistory();
+  const [adminUsername, setAdminUsername] = useState(
+    sessionStorage.getItem("stash.bootstrap.username") ?? ""
+  );
+  const [adminPassword, setAdminPassword] = useState("");
+  const setupApplied = React.useRef(false);
+  const uiConfigured = React.useRef(false);
 
   const steps: React.FC<IWizardStep>[] = [
     WelcomeStep,
     SetPathsStep,
-    CredentialsStep,
+    AdminAccountStep,
     ConfirmStep,
     FinishStep,
   ];
   const Step = steps[step];
 
+  React.useEffect(() => {
+    sessionStorage.setItem("stash.bootstrap.setup", JSON.stringify(setupInput));
+  }, [setupInput]);
+
+  React.useEffect(() => {
+    sessionStorage.setItem("stash.bootstrap.username", adminUsername);
+  }, [adminUsername]);
+
+  React.useEffect(() => {
+    const bootstrapClosed = statusError?.graphQLErrors.some(
+      (error) => error.extensions?.code === "UNAUTHENTICATED"
+    );
+    if (bootstrapClosed) {
+      sessionStorage.removeItem("stash.bootstrap.setup");
+      sessionStorage.removeItem("stash.bootstrap.username");
+      setAdminPassword("");
+      history.replace("/login");
+    }
+  }, [history, statusError]);
+
+  React.useEffect(() => {
+    if (
+      bootstrapData?.bootstrapConfiguration.status !==
+        GQL.SystemStatusEnum.Setup &&
+      step === 0
+    ) {
+      setupApplied.current = true;
+      uiConfigured.current = true;
+      setStep(2);
+    }
+  }, [bootstrapData, step]);
+
   async function createSystem() {
     try {
       setCreating(true);
       setSetupError(undefined);
-      await mutateSetup(setupInput as GQL.SetupInput);
-      history.replace("/welcome");
+
+      if (!setupApplied.current) {
+        await mutateSetup(setupInput as GQL.SetupInput);
+        setupApplied.current = true;
+      }
+      if (!uiConfigured.current) {
+        // Set lastNoteSeen to hide release notes dialog. This is deliberately
+        // separate from account creation, and must not be replayed on retry.
+        await mutateBootstrapConfigureUI(releaseNotes[0].date.toString());
+        uiConfigured.current = true;
+      }
+
+      try {
+        await mutateBootstrapFirstAdmin({
+          username: adminUsername.trim(),
+          password: adminPassword,
+        });
+      } catch (adminError) {
+        // If a concurrent request won, the bootstrap query is now denied because
+        // the zero-user window closed. In that case the only valid next step is login.
+        try {
+          await refetchBootstrapConfiguration();
+        } catch {
+          setAdminPassword("");
+          sessionStorage.removeItem("stash.bootstrap.setup");
+          sessionStorage.removeItem("stash.bootstrap.username");
+          window.location.assign("/login");
+          return;
+        }
+        throw adminError;
+      }
+      setAdminPassword("");
+      sessionStorage.removeItem("stash.bootstrap.setup");
+      sessionStorage.removeItem("stash.bootstrap.username");
+      window.location.assign("/login");
+      return;
     } catch (e) {
       if (e instanceof Error && e.message) {
         setSetupError(e.message);
       } else {
         setSetupError(String(e));
       }
-      setStep(step + 1);
     } finally {
       setCreating(false);
+      setStep((currentStep) => currentStep + 1);
     }
   }
 
@@ -1086,16 +1217,6 @@ export const Setup: React.FC = () => {
     return <LoadingIndicator />;
   }
 
-  if (
-    step === 0 &&
-    systemStatus &&
-    systemStatus.systemStatus.status !== GQL.SystemStatusEnum.Setup
-  ) {
-    // redirect to welcome page
-    history.push("/welcome");
-    return <LoadingIndicator />;
-  }
-
   if (statusError) {
     return (
       <Container>
@@ -1109,7 +1230,7 @@ export const Setup: React.FC = () => {
     );
   }
 
-  if (!configuration || !systemStatus) {
+  if (!systemStatus) {
     return (
       <Container>
         <Alert variant="danger">
@@ -1128,6 +1249,10 @@ export const Setup: React.FC = () => {
       setupError={setupError}
       configuration={configuration}
       systemStatus={systemStatus}
+      adminUsername={adminUsername}
+      adminPassword={adminPassword}
+      setAdminUsername={setAdminUsername}
+      setAdminPassword={setAdminPassword}
     >
       <Container className="setup-wizard">
         <h1 className="text-center">

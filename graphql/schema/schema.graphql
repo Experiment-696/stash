@@ -1,5 +1,23 @@
 "The query root for this schema"
 type Query {
+  "Purpose-bound, path-free status for the migration bootstrap flow."
+  migrationStatus: MigrationStatus!
+  "Non-sensitive setup state available only in the local zero-user bootstrap window."
+  bootstrapConfiguration: BootstrapConfiguration!
+  "Non-secret configuration required to render the authenticated SPA shell."
+  appShellConfiguration: AppShellConfiguration!
+  "Current persisted account metadata."
+  me: UserAccount!
+  myPreferences: MyPreferences!
+  "Installed, enabled CSS themes safe for authenticated account selection."
+  availableThemes: [SelectableTheme!]!
+  "Admin-only user account metadata."
+  users: [UserAccount!]!
+  "Bounded Admin-only security audit events, newest first."
+  auditEvents(limit: Int! = 50, offset: Int! = 0): [AuditEvent!]!
+  "API tokens owned by the current user. Secrets are never returned."
+  myAPITokens: [APIToken!]!
+
   # Filters
   findSavedFilter(id: ID!): SavedFilter
   findSavedFilters(mode: FilterMode): [SavedFilter!]!
@@ -280,10 +298,27 @@ type Query {
 }
 
 type Mutation {
+  setMyHomepageRoute(route: String!): MyPreferences!
+  "Select an installed theme for the current account, or null for the global theme."
+  setMyTheme(themeID: ID): MyPreferences!
+  "Local-only setup preference write available before the first account exists."
+  bootstrapConfigureUI(lastNoteSeen: String!): Boolean!
+  "Local-only, single-use creation of the first Admin on a fresh installation."
+  bootstrapFirstAdmin(input: FirstAdminBootstrapInput!): UserAccount!
+  createUser(input: UserCreateInput!): UserAccount!
+  updateUserAccess(input: UserAccessInput!): UserAccount!
+  resetUserPassword(id: ID!, password: String!): Boolean!
+  revokeUserSessions(id: ID!): Boolean!
+  revokeUserAPITokens(id: ID!): Boolean!
+  "Creates a scoped API token for the current user. The secret is returned once."
+  createMyAPIToken(input: APITokenCreateInput!): APITokenCreateResult!
+  "Revokes an API token owned by the current user."
+  revokeMyAPIToken(id: ID!): Boolean!
+
   setup(input: SetupInput!): Boolean!
 
-  "Migrates the schema to the required version. Returns the job ID"
-  migrate(input: MigrateInput!): ID!
+  "Migrates the schema to the required version. Always creates a managed backup."
+  migrate: ID!
 
   "Downloads and installs ffmpeg and ffprobe binaries into the configuration directory. Returns the job ID."
   downloadFFMpeg: ID!
@@ -371,6 +406,9 @@ type Mutation {
 
   performerCreate(input: PerformerCreateInput!): Performer
   performerUpdate(input: PerformerUpdateInput!): Performer
+  performerSetFavorite(id: ID!, favorite: Boolean!): Performer!
+  performerSetRating(id: ID!, rating100: Int): Performer!
+  sceneSetRating(id: ID!, rating100: Int): Scene!
   performerDestroy(input: PerformerDestroyInput!): Boolean!
   performersDestroy(ids: [ID!]!): Boolean!
   bulkPerformerUpdate(input: BulkPerformerUpdateInput!): [Performer!]

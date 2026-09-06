@@ -203,7 +203,7 @@ interface IDialogSetting<T> extends ISetting {
   buttonText?: string;
   buttonTextID?: string;
   value?: T;
-  renderValue?: (v: T | undefined) => React.ReactNode;
+  renderValue?: (v: T | undefined) => JSX.Element;
   onChange: () => void;
 }
 const _ChangeButtonSetting = <T extends {}>(props: IDialogSetting<T>) => {
@@ -234,8 +234,8 @@ const _ChangeButtonSetting = <T extends {}>(props: IDialogSetting<T>) => {
           {headingID
             ? intl.formatMessage({ id: headingID })
             : heading
-              ? heading
-              : undefined}
+            ? heading
+            : undefined}
         </h3>
 
         <div className="value">
@@ -306,8 +306,8 @@ const _SettingModal = <T extends {}>(props: ISettingModal<T>) => {
     <Modal show onHide={() => close()} id="setting-dialog" {...modalProps}>
       <Form
         onSubmit={(e) => {
-          close(currentValue);
           e.preventDefault();
+          close(currentValue);
         }}
       >
         <Modal.Header closeButton>
@@ -330,7 +330,6 @@ const _SettingModal = <T extends {}>(props: ISettingModal<T>) => {
           <Button
             type="submit"
             variant="primary"
-            onClick={() => close(currentValue)}
             disabled={
               currentValue === undefined ||
               (validate && !validate(currentValue))
@@ -359,9 +358,9 @@ interface IModalSetting<T> extends ISetting {
     setValue: (v?: T) => void,
     error?: string
   ) => JSX.Element;
-  renderValue?: (v: T | undefined) => React.ReactNode;
+  renderValue?: (v: T | undefined) => JSX.Element;
   modalProps?: ModalProps;
-  validateChange?: (v: T) => void;
+  validateChange?: (v: T) => void | undefined;
 }
 
 export const _ModalSetting = <T extends {}>(props: IModalSetting<T>) => {
@@ -521,7 +520,7 @@ export const StringListSetting: React.FC<IStringListSetting> = PatchComponent(
         renderValue={(value) => (
           <div>
             {value?.map((v, i) => (
-              // XXbiome-ignore react/no-array-index-key: intentional
+              // eslint-disable-next-line react/no-array-index-key
               <div key={i}>{v}</div>
             ))}
           </div>

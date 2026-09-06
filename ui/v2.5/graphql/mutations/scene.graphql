@@ -10,6 +10,12 @@ mutation SceneUpdate($input: SceneUpdateInput!) {
   }
 }
 
+mutation SceneSetRating($id: ID!, $rating100: Int) {
+  sceneSetRating(id: $id, rating100: $rating100) {
+    ...SceneData
+  }
+}
+
 mutation BulkSceneUpdate($input: BulkSceneUpdateInput!) {
   bulkSceneUpdate(input: $input) {
     ...SceneData

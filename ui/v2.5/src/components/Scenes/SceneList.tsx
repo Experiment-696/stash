@@ -366,6 +366,9 @@ export const FilteredSceneList = PatchComponent(
     const intl = useIntl();
     const history = useHistory();
     const location = useLocation();
+    const { data: meData } = GQL.useMeQuery({ fetchPolicy: "no-cache" });
+    const isAdmin = meData?.me.role === "ADMIN";
+    const canEditMetadata = isAdmin || meData?.me.role === "MODERATOR";
 
     const searchFocus = useFocus();
 
@@ -451,13 +454,13 @@ export const FilteredSceneList = PatchComponent(
 
     useEffect(() => {
       Mousetrap.bind("e", () => {
-        if (hasSelection) {
+        if (hasSelection && canEditMetadata) {
           onEdit?.();
         }
       });
 
       Mousetrap.bind("d d", () => {
-        if (hasSelection) {
+        if (hasSelection && isAdmin) {
           onDelete?.();
         }
       });
@@ -466,8 +469,7 @@ export const FilteredSceneList = PatchComponent(
         Mousetrap.unbind("e");
         Mousetrap.unbind("d d");
       };
-    }, [hasSelection, onEdit, onDelete]);
-
+    }, [onSelectAll, onSelectNone, hasSelection, canEditMetadata, isAdmin, onEdit, onDelete]);
     useZoomKeybinds({
       zoomIndex: filter.zoomIndex,
       onChangeZoom: (zoom) => setFilter(filter.setZoom(zoom)),
@@ -489,7 +491,7 @@ export const FilteredSceneList = PatchComponent(
     const playFirst = usePlayFirst();
 
     function onCreateNew() {
-      const queryParam = new URLSearchParams(location.search).get("q");
+      let queryParam = new URLSearchParams(location.search).get("q");
       let newPath = "/scenes/new";
       if (queryParam) {
         newPath += "?q=" + encodeURIComponent(queryParam);
@@ -562,7 +564,7 @@ export const FilteredSceneList = PatchComponent(
           { entityType: intl.formatMessage({ id: "scene" }) }
         ),
         onClick: () => onCreateNew(),
-        isDisplayed: () => !hasSelection,
+        isDisplayed: () => !hasSelection && canEditMetadata,
         className: "create-new-item",
       },
       {
@@ -595,7 +597,7 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: `${intl.formatMessage({ id: "actions.identify" })}…`,
@@ -606,21 +608,22 @@ export const FilteredSceneList = PatchComponent(
               onClose={() => closeModal()}
             />
           ),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: `${intl.formatMessage({ id: "actions.merge" })}…`,
         onClick: () => onMerge(),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export" }),
         onClick: () => onExport(false),
-        isDisplayed: () => hasSelection,
+        isDisplayed: () => hasSelection && isAdmin,
       },
       {
         text: intl.formatMessage({ id: "actions.export_all" }),
         onClick: () => onExport(true),
+        isDisplayed: () => isAdmin,
       },
     ];
 
@@ -632,8 +635,8 @@ export const FilteredSceneList = PatchComponent(
         items={items.length}
         hasSelection={hasSelection}
         operations={otherOperations}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        onEdit={canEditMetadata ? onEdit : undefined}
+        onDelete={isAdmin ? onDelete : undefined}
         onPlay={onPlay}
         operationsMenuClassName="scene-list-operations-dropdown"
       />
@@ -671,15 +674,14 @@ export const FilteredSceneList = PatchComponent(
                   listSelect={listSelect}
                   setFilter={setFilter}
                   showEditFilter={showEditFilter}
-                  onDelete={onDelete}
-                  onEdit={onEdit}
+                  onDelete={isAdmin ? onDelete : undefined}
+                  onEdit={canEditMetadata ? onEdit : undefined}
                   operationComponent={operations}
                   view={view}
                   zoomable
                 />
 
                 <FilterTags
-                  view={view}
                   criteria={filter.criteria}
                   onEditCriterion={(c) =>
                     showEditFilter(c.criterionOption.type)

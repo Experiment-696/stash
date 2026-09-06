@@ -1,64 +1,29 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Button, Card, Container, Form, ProgressBar } from "react-bootstrap";
-import { useIntl, FormattedMessage } from "react-intl";
+import React, { useMemo, useState } from "react";
+import { Button, Card, Container } from "react-bootstrap";
+import { FormattedMessage } from "react-intl";
 import { useHistory } from "react-router-dom";
+import { baseURL } from "src/core/createClient";
 import * as GQL from "src/core/generated-graphql";
 import {
-  useSystemStatus,
+  useMigrationStatus,
   mutateMigrate,
   postMigrate,
-  refetchSystemStatus,
 } from "src/core/StashService";
 import { migrationNotes } from "src/docs/en/MigrationNotes";
 import { ExternalLink } from "../Shared/ExternalLink";
 import { LoadingIndicator } from "../Shared/LoadingIndicator";
 import { MarkdownPage } from "../Shared/MarkdownPage";
-import { JobFragment, useMonitorJob } from "src/utils/job";
 
 export const Migrate: React.FC = () => {
-  const intl = useIntl();
   const history = useHistory();
 
-  const { data: systemStatus, loading } = useSystemStatus();
+  const { data: migrationStatus, loading } = useMigrationStatus();
 
-  const [backupPath, setBackupPath] = useState<string | undefined>();
   const [migrateLoading, setMigrateLoading] = useState(false);
   const [migrateError, setMigrateError] = useState("");
 
-  const [jobID, setJobID] = useState<string | undefined>();
-
-  function onJobFinished(finishedJob?: JobFragment) {
-    setJobID(undefined);
-    setMigrateLoading(false);
-
-    if (finishedJob?.error) {
-      setMigrateError(finishedJob.error);
-    } else {
-      postMigrate();
-      // refetch the system status so that the we get redirected
-      refetchSystemStatus();
-    }
-  }
-
-  const { job } = useMonitorJob(jobID, onJobFinished);
-
   // if database path includes path separators, then this is passed through
   // to the migration path. Extract the base name of the database file.
-  const databasePath = systemStatus
-    ? systemStatus?.systemStatus.databasePath?.split(/[\\/]/).pop()
-    : "";
-
-  // make suffix based on current time
-  const now = new Date()
-    .toISOString()
-    .replace(/T/g, "_")
-    .replace(/-/g, "")
-    .replace(/:/g, "")
-    .replace(/\..*/, "");
-  const defaultBackupPath = systemStatus
-    ? `${databasePath}.${systemStatus.systemStatus.databaseSchema}.${now}`
-    : "";
-
   const discordLink = (
     <ExternalLink href="https://discord.gg/2TsNFKt">Discord</ExternalLink>
   );
@@ -68,26 +33,18 @@ export const Migrate: React.FC = () => {
     </ExternalLink>
   );
 
-  useEffect(() => {
-    if (backupPath === undefined && defaultBackupPath) {
-      setBackupPath(defaultBackupPath);
-    }
-  }, [defaultBackupPath, backupPath]);
-
-  const status = systemStatus?.systemStatus;
+  const status = migrationStatus?.migrationStatus;
 
   const maybeMigrationNotes = useMemo(() => {
     if (
       !status ||
-      status.databaseSchema === undefined ||
-      status.databaseSchema === null ||
-      status.appSchema === undefined ||
-      status.appSchema === null
+      status.currentSchema === undefined ||
+      status.requiredSchema === undefined
     )
       return;
 
     const notes = [];
-    for (let i = status.databaseSchema + 1; i <= status.appSchema; ++i) {
+    for (let i = status.currentSchema + 1; i <= status.requiredSchema; ++i) {
       const note = migrationNotes[i];
       if (note) {
         notes.push(note);
@@ -113,16 +70,11 @@ export const Migrate: React.FC = () => {
   }, [status]);
 
   // only display setup wizard if system is not setup
-  if (loading || !systemStatus || !status) {
+  if (loading || !migrationStatus || !status) {
     return <LoadingIndicator />;
   }
 
   if (migrateLoading) {
-    const progress =
-      job && job.progress !== undefined && job.progress !== null
-        ? job.progress * 100
-        : undefined;
-
     return (
       <div className="migrate-loading-status">
         <h4>
@@ -131,25 +83,11 @@ export const Migrate: React.FC = () => {
             <FormattedMessage id="setup.migrate.migrating_database" />
           </span>
         </h4>
-        {progress !== undefined && (
-          <ProgressBar
-            animated
-            now={progress}
-            label={`${progress.toFixed(0)}%`}
-          />
-        )}
-        {job?.subTasks?.map((subTask, i) => (
-          <div key={i}>
-            <p>{subTask}</p>
-          </div>
-        ))}
       </div>
     );
   }
 
-  if (
-    systemStatus.systemStatus.status !== GQL.SystemStatusEnum.NeedsMigration
-  ) {
+  if (status.status !== GQL.SystemStatusEnum.NeedsMigration) {
     // redirect to main page
     history.replace("/");
     return <LoadingIndicator />;
@@ -161,11 +99,9 @@ export const Migrate: React.FC = () => {
       setMigrateError("");
 
       // migrate now uses the job manager
-      const ret = await mutateMigrate({
-        backupPath: backupPath ?? "",
-      });
-
-      setJobID(ret.data?.migrate);
+      await mutateMigrate();
+      postMigrate();
+      window.location.assign(`${baseURL}login`);
     } catch (e) {
       if (e instanceof Error) setMigrateError(e.message ?? e.toString());
       setMigrateLoading(false);
@@ -212,8 +148,8 @@ export const Migrate: React.FC = () => {
             <FormattedMessage
               id="setup.migrate.schema_too_old"
               values={{
-                databaseSchema: <strong>{status.databaseSchema}</strong>,
-                appSchema: <strong>{status.appSchema}</strong>,
+                databaseSchema: <strong>{status.currentSchema}</strong>,
+                appSchema: <strong>{status.requiredSchema}</strong>,
                 strong: (chunks: string) => <strong>{chunks}</strong>,
                 code: (chunks: string) => <code>{chunks}</code>,
               }}
@@ -224,37 +160,10 @@ export const Migrate: React.FC = () => {
             <FormattedMessage id="setup.migrate.migration_irreversible_warning" />
           </p>
 
-          <p>
-            <FormattedMessage
-              id="setup.migrate.backup_recommended"
-              values={{
-                defaultBackupPath,
-                code: (chunks: string) => <code>{chunks}</code>,
-              }}
-            />
-          </p>
+          <p>A managed database backup will be created before migration.</p>
         </section>
 
         {maybeMigrationNotes}
-
-        <section>
-          <Form.Group id="migrate">
-            <Form.Label>
-              <FormattedMessage id="setup.migrate.backup_database_path_leave_empty_to_disable_backup" />
-            </Form.Label>
-            <Form.Control
-              className="text-input"
-              name="backupPath"
-              defaultValue={backupPath}
-              placeholder={intl.formatMessage({
-                id: "setup.paths.database_filename_empty_for_default",
-              })}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setBackupPath(e.currentTarget.value)
-              }
-            />
-          </Form.Group>
-        </section>
 
         <section>
           <div className="d-flex justify-content-center">

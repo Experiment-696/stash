@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/utils"
 )
 
@@ -18,6 +19,7 @@ func getCustomRoutes(servedFolders utils.URLMap) chi.Router {
 
 func (rs customRoutes) Routes() chi.Router {
 	r := chi.NewRouter()
+	r.Use(requireCapability(authz.LibraryRead))
 
 	r.HandleFunc("/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.Replace(r.URL.Path, "/custom", "", 1)

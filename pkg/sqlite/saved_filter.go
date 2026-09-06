@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"time"
 
 	"github.com/doug-martin/goqu/v9"
 	"github.com/doug-martin/goqu/v9/exp"
@@ -21,8 +23,61 @@ const (
 	savedFilterDefaultName = ""
 )
 
+func defaultFilterPreferenceKey(mode models.FilterMode) (string, error) {
+	if !mode.IsValid() {
+		return "", fmt.Errorf("invalid filter mode %q", mode)
+	}
+	return "default_filter:" + mode.String(), nil
+}
+
+func (qb *SavedFilterStore) SetDefaultForUser(ctx context.Context, userID int64, mode models.FilterMode, filterID *int) error {
+	key, err := defaultFilterPreferenceKey(mode)
+	if err != nil {
+		return err
+	}
+	if filterID == nil {
+		_, err = dbWrapper.Exec(ctx, `DELETE FROM user_preferences WHERE user_id = ? AND key = ?`, userID, key)
+		return err
+	}
+	filter, err := qb.FindForUser(ctx, *filterID, userID)
+	if err != nil {
+		return err
+	}
+	if filter == nil || filter.Mode != mode {
+		return errors.New("saved filter does not belong to this user and mode")
+	}
+	_, err = dbWrapper.Exec(ctx, `INSERT INTO user_preferences (user_id, key, value_json, updated_at)
+		VALUES (?, ?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+		userID, key, strconv.Itoa(*filterID), time.Now().UTC())
+	return err
+}
+
+func (qb *SavedFilterStore) FindDefaultForUser(ctx context.Context, userID int64, mode models.FilterMode) (*models.SavedFilter, error) {
+	key, err := defaultFilterPreferenceKey(mode)
+	if err != nil {
+		return nil, err
+	}
+	var raw string
+	if err := dbWrapper.Get(ctx, &raw, `SELECT value_json FROM user_preferences WHERE user_id = ? AND key = ?`, userID, key); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	id, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil, nil
+	}
+	filter, err := qb.FindForUser(ctx, id, userID)
+	if err != nil || filter == nil || filter.Mode != mode {
+		return nil, err
+	}
+	return filter, nil
+}
+
 type savedFilterRow struct {
 	ID           int               `db:"id" goqu:"skipinsert"`
+	UserID       *int64            `db:"user_id"`
 	Mode         models.FilterMode `db:"mode"`
 	Name         string            `db:"name"`
 	FindFilter   string            `db:"find_filter"`
@@ -55,6 +110,7 @@ func decodeJSON(s string, v interface{}) {
 
 func (r *savedFilterRow) fromSavedFilter(o models.SavedFilter) {
 	r.ID = o.ID
+	r.UserID = o.UserID
 	r.Mode = o.Mode
 	r.Name = o.Name
 
@@ -66,9 +122,10 @@ func (r *savedFilterRow) fromSavedFilter(o models.SavedFilter) {
 
 func (r *savedFilterRow) resolve() *models.SavedFilter {
 	ret := &models.SavedFilter{
-		ID:   r.ID,
-		Mode: r.Mode,
-		Name: r.Name,
+		ID:     r.ID,
+		UserID: r.UserID,
+		Mode:   r.Mode,
+		Name:   r.Name,
 	}
 
 	// decode the filters from json
@@ -86,6 +143,62 @@ func (r *savedFilterRow) resolve() *models.SavedFilter {
 	}
 
 	return ret
+}
+
+func (qb *SavedFilterStore) FindForUser(ctx context.Context, id int, userID int64) (*models.SavedFilter, error) {
+	q := qb.selectDataset().Where(qb.tableMgr.byID(id), qb.table().Col("user_id").Eq(userID))
+	ret, err := qb.get(ctx, q)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return ret, err
+}
+
+func (qb *SavedFilterStore) AllForUser(ctx context.Context, userID int64) ([]*models.SavedFilter, error) {
+	return qb.getMany(ctx, qb.selectDataset().Where(qb.table().Col("user_id").Eq(userID)))
+}
+
+func (qb *SavedFilterStore) FindByModeForUser(ctx context.Context, mode models.FilterMode, userID int64) ([]*models.SavedFilter, error) {
+	filters, err := qb.FindByMode(ctx, mode)
+	if err != nil {
+		return nil, err
+	}
+	ret := filters[:0]
+	for _, filter := range filters {
+		if filter.UserID != nil && *filter.UserID == userID {
+			ret = append(ret, filter)
+		}
+	}
+	return ret, nil
+}
+
+func (qb *SavedFilterStore) DestroyForUser(ctx context.Context, id int, userID int64) error {
+	filter, err := qb.FindForUser(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	if filter == nil {
+		return sql.ErrNoRows
+	}
+	key, err := defaultFilterPreferenceKey(filter.Mode)
+	if err != nil {
+		return err
+	}
+	if _, err := dbWrapper.Exec(ctx, `DELETE FROM user_preferences WHERE user_id = ? AND key = ? AND value_json = ?`, userID, key, strconv.Itoa(id)); err != nil {
+		return err
+	}
+	result, err := dbWrapper.Exec(ctx, `DELETE FROM saved_filters WHERE id = ? AND user_id = ?`, id, userID)
+	if err != nil {
+		return err
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if changed != 1 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 type SavedFilterStore struct {

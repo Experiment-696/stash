@@ -38,7 +38,7 @@ interface IGroupEditPanel {
   group: Partial<GQL.GroupDataFragment>;
   onSubmit: (group: GQL.GroupCreateInput, andNew?: boolean) => Promise<void>;
   onCancel: () => void;
-  onDelete: () => void;
+  onDelete?: (() => void) | undefined;
   setFrontImage: (image?: string | null) => void;
   setBackImage: (image?: string | null) => void;
   setEncodingImage: (loading: boolean) => void;

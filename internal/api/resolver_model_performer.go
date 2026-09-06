@@ -6,10 +6,12 @@ import (
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/pkg/gallery"
 	"github.com/stashapp/stash/pkg/image"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/performer"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 func (r *performerResolver) AliasList(ctx context.Context, obj *models.Performer) ([]string, error) {
@@ -271,7 +273,47 @@ func (r *performerResolver) StashIds(ctx context.Context, obj *models.Performer)
 }
 
 func (r *performerResolver) Rating100(ctx context.Context, obj *models.Performer) (*int, error) {
-	return obj.Rating, nil
+	state, err := r.personalState(ctx, obj.ID)
+	return state.Rating, err
+}
+
+func (r *performerResolver) Favorite(ctx context.Context, obj *models.Performer) (bool, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.Favorite, err
+}
+
+func (r *performerResolver) Rating100Sum(ctx context.Context, obj *models.Performer) (int, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingSum, err
+}
+
+func (r *performerResolver) Rating100Count(ctx context.Context, obj *models.Performer) (int, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingCount, err
+}
+
+func (r *performerResolver) Rating100Average(ctx context.Context, obj *models.Performer) (float64, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingAverage, err
+}
+
+func (r *performerResolver) personalState(ctx context.Context, performerID int) (ret sqlite.PerformerPersonalState, err error) {
+	principal, err := authz.RequireContext(ctx, authz.AccountSelfRead)
+	if err != nil {
+		return ret, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return ret, err
+	}
+	err = r.withReadTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().PersonalState.Performer(txCtx, userID, int64(performerID))
+		return err
+	})
+	if err != nil {
+		return ret, personalDataError("load performer state", err)
+	}
+	return ret, nil
 }
 
 func (r *performerResolver) DeathDate(ctx context.Context, obj *models.Performer) (*string, error) {

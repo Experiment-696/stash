@@ -1,0 +1,1409 @@
+{
+  "schema_version": "1",
+  "surfaces": [
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "addGalleryImages",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "addGroupSubGroups",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "addTempDLNAIP",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "anonymiseDatabase",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "backupDatabase",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bootstrapConfigureUI",
+      "capability": "public.bootstrap",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bootstrapFirstAdmin",
+      "capability": "public.bootstrap",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkGalleryUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkGroupUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkImageUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkMovieUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkPerformerUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkSceneMarkerUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkSceneUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkStudioUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "bulkTagUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureDLNA",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureDefaults",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureGeneral",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureInterface",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configurePlugin",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureScraping",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureUI",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "configureUISetting",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "createMyAPIToken",
+      "capability": "account.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "createUser",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "deleteFiles",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "destroyFiles",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "destroySavedFilter",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "disableDLNA",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "downloadFFMpeg",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "enableDLNA",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "execSQL",
+      "capability": "database.sql",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "exportObjects",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "fileSetFingerprints",
+      "capability": "hash.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleriesUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryChapterCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryChapterDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryChapterUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "galleryUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "generateAPIKey",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "groupCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "groupDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "groupUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "groupsDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imageDecrementO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imageDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imageIncrementO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imageResetO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imageUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imagesDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "imagesUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "importObjects",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "installPackages",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataAutoTag",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataClean",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataCleanGenerated",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataExport",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataGenerate",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataIdentify",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataImport",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "metadataScan",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "migrate",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "migrateBlobs",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "migrateHashNaming",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "migrateSceneScreenshots",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "moveFiles",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "movieCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "movieDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "movieUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "moviesDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "optimiseDatabase",
+      "capability": "data.admin",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerMerge",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerSetFavorite",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerSetRating",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performerUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "performersDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "querySQL",
+      "capability": "database.sql",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "reloadPlugins",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "reloadScrapers",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "removeGalleryImages",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "removeGroupSubGroups",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "removeTempDLNAIP",
+      "capability": "system.configure",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "reorderSubGroups",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "resetGalleryCover",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "resetUserPassword",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "revealFileInFileManager",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "revealFolderInFileManager",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "revokeMyAPIToken",
+      "capability": "account.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "revokeUserAPITokens",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "revokeUserSessions",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "runPluginOperation",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "runPluginTask",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "saveFilter",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneAddO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneAddPlay",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneAssignFile",
+      "capability": "filesystem.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneDecrementO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneDeleteO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneDeletePlay",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneGenerateScreenshot",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneIncrementO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneIncrementPlayCount",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneMarkerCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneMarkerDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneMarkerUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneMarkersDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneMerge",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneResetActivity",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneResetO",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneResetPlayCount",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneSaveActivity",
+      "capability": "activity.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneSetRating",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "sceneUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "scenesDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "scenesUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setDefaultFilter",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setGalleryCover",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setMyHomepageRoute",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setMyTheme",
+      "capability": "preference.self.write",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setPluginsEnabled",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "setup",
+      "capability": "public.bootstrap",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "stashBoxBatchPerformerTag",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "stashBoxBatchStudioTag",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "stashBoxBatchTagTag",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "stopAllJobs",
+      "capability": "job.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "stopJob",
+      "capability": "job.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "studioCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "studioDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "studioUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "studiosDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "submitStashBoxFingerprints",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "submitStashBoxPerformerDraft",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "submitStashBoxSceneDraft",
+      "capability": "automation.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "tagCreate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "tagDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "tagUpdate",
+      "capability": "metadata.write",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "tagsDestroy",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "tagsMerge",
+      "capability": "library.destructive",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "uninstallPackages",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "updatePackages",
+      "capability": "extension.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_MUTATION",
+      "name": "updateUserAccess",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allGalleries",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allImages",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allMovies",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allPerformers",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allSceneMarkers",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allScenes",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allStudios",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "allTags",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "appShellConfiguration",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "auditEvents",
+      "capability": "audit.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "availablePackages",
+      "capability": "extension.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "availableThemes",
+      "capability": "account.self.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "bootstrapConfiguration",
+      "capability": "public.bootstrap",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "configuration",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "directory",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "dlnaStatus",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findDefaultFilter",
+      "capability": "account.self.read",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findDuplicateScenes",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findFile",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findFiles",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findFolder",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findFolders",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findGalleries",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findGallery",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findGroup",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findGroups",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findImage",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findImages",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findJob",
+      "capability": "job.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findMovie",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findMovies",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findPerformer",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findPerformers",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findSavedFilter",
+      "capability": "account.self.read",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findSavedFilters",
+      "capability": "account.self.read",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findScene",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findSceneByHash",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findSceneMarkers",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findScenes",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findScenesByPathRegex",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findStudio",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findStudios",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findTag",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "findTags",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "installedPackages",
+      "capability": "extension.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "jobQueue",
+      "capability": "job.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "latestversion",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "listScrapers",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "logs",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "markerStrings",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "markerWall",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "me",
+      "capability": "account.self.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "migrationStatus",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "myAPITokens",
+      "capability": "account.self.read",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "myPreferences",
+      "capability": "account.self.read",
+      "owner_scoped": true
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "parseSceneFilenames",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "pluginTasks",
+      "capability": "extension.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "plugins",
+      "capability": "extension.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "sceneMarkerTags",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "sceneStreams",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "sceneWall",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeGalleryURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeGroupURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeImageURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeMovieURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeMultiPerformers",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeMultiScenes",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapePerformerURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSceneURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleGallery",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleGroup",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleImage",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleMovie",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSinglePerformer",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleScene",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleStudio",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeSingleTag",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "scrapeURL",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "stats",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "systemStatus",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "users",
+      "capability": "account.manage",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "validateStashBoxCredentials",
+      "capability": "scraper.run",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_QUERY",
+      "name": "version",
+      "capability": "library.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_SUBSCRIPTION",
+      "name": "jobsSubscribe",
+      "capability": "job.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_SUBSCRIPTION",
+      "name": "loggingSubscribe",
+      "capability": "system.status.read",
+      "owner_scoped": false
+    },
+    {
+      "kind": "GRAPHQL_SUBSCRIPTION",
+      "name": "scanCompleteSubscribe",
+      "capability": "library.read",
+      "owner_scoped": false
+    }
+  ]
+}

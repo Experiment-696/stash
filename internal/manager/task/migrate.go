@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/stashapp/stash/internal/manager/config"
-	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/job"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/sqlite"
@@ -31,21 +29,6 @@ type databaseSchemaInfo struct {
 	StepsRequired         uint
 }
 
-// PreExecute validates the environment before executing the migration.
-// It returns an error if the migration cannot be performed.
-func (s *MigrateJob) PreExecute() error {
-	// ensure backup directory exists and is writable
-	backupDir := s.Config.GetBackupDirectoryPathOrDefault()
-	if backupDir != "" {
-		if err := fsutil.EnsureDir(backupDir); err != nil {
-			logger.Errorf("error ensuring backup directory exists: %s", err)
-			logger.Warnf("Backup directory (%s) must be modified to a valid directory or removed from the config file", config.BackupDirectoryPath)
-			return fmt.Errorf("error creating backup directory: %w", err)
-		}
-	}
-	return nil
-}
-
 func (s *MigrateJob) Execute(ctx context.Context, progress *job.Progress) error {
 	schemaInfo, err := s.required()
 	if err != nil {
@@ -66,17 +49,7 @@ func (s *MigrateJob) Execute(ctx context.Context, progress *job.Progress) error 
 
 	// always backup so that we can roll back to the previous version if
 	// migration fails
-	backupPath := s.BackupPath
-	if backupPath == "" {
-		backupPath = database.DatabaseBackupPath(s.Config.GetBackupDirectoryPath())
-	} else {
-		// check if backup path is a filename or path
-		// filename goes into backup directory, path is kept as is
-		filename := filepath.Base(backupPath)
-		if backupPath == filename {
-			backupPath = filepath.Join(s.Config.GetBackupDirectoryPathOrDefault(), filename)
-		}
-	}
+	backupPath := migrationBackupPath(database, s.Config, s.BackupPath)
 
 	progress.ExecuteTask("Backing up database", func() {
 		defer progress.Increment()
@@ -120,6 +93,28 @@ func (s *MigrateJob) Execute(ctx context.Context, progress *job.Progress) error 
 	logger.Infof("Database migration complete")
 
 	return nil
+}
+
+func migrationBackupPath(database *sqlite.Database, config migrateJobConfig, requested string) string {
+	if requested == "" {
+		backupDirectory := config.GetBackupDirectoryPath()
+		if backupDirectory == "" {
+			// Derive the implicit default from the database's authoritative path,
+			// not the process working directory. In a container the working
+			// directory and a bind-mounted database can be different filesystems.
+			backupDirectory = filepath.Dir(database.DatabasePath())
+		}
+		return database.DatabaseBackupPath(backupDirectory)
+	}
+
+	// A filename goes into the configured/default backup directory; an
+	// explicitly qualified path is kept as-is.
+	filename := filepath.Base(requested)
+	if requested == filename {
+		return filepath.Join(config.GetBackupDirectoryPathOrDefault(), filename)
+	}
+
+	return requested
 }
 
 func (s *MigrateJob) required() (ret databaseSchemaInfo, err error) {

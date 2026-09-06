@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -31,12 +32,16 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/stashapp/stash/internal/api/loaders"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/build"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/plugin"
+	"github.com/stashapp/stash/pkg/session"
+	"github.com/stashapp/stash/pkg/sqlite"
+	"github.com/stashapp/stash/pkg/txn"
 	"github.com/stashapp/stash/pkg/utils"
 	"github.com/stashapp/stash/ui"
 )
@@ -83,6 +88,13 @@ func (dir osFS) Open(name string) (fs.File, error) {
 func Initialize() (*Server, error) {
 	mgr := manager.GetInstance()
 	cfg := mgr.Config
+	if migrationWindowOpen(mgr.Database) {
+		path, expiry, tokenErr := session.EnsureMigrationToken(time.Now(), cfg.GetConfigPathAbs())
+		if tokenErr != nil {
+			return nil, fmt.Errorf("creating protected migration-token handoff: %w", tokenErr)
+		}
+		logger.Infof("Database migration required; retrieve the one-time token from protected file %s; expires at %s; correlation %s", path, expiry.Format(time.RFC3339), session.MigrationCorrelationID())
+	}
 
 	initCustomPerformerImages(cfg.GetCustomPerformerImageLocation())
 
@@ -124,7 +136,6 @@ func Initialize() (*Server, error) {
 
 	r.Use(middleware.Heartbeat("/healthz"))
 	r.Use(cors.AllowAll().Handler)
-	r.Use(RequestIPMiddleware)
 	r.Use(authenticateHandler())
 	visitedPluginHandler := mgr.SessionStore.VisitedPluginHandler()
 	r.Use(visitedPluginHandler)
@@ -164,6 +175,7 @@ func Initialize() (*Server, error) {
 	galleryService := mgr.GalleryService
 	groupService := mgr.GroupService
 	resolver := &Resolver{
+		database:       mgr.Database,
 		repository:     repo,
 		sceneService:   sceneService,
 		imageService:   imageService,
@@ -174,13 +186,17 @@ func Initialize() (*Server, error) {
 
 	gqlSrv := gqlHandler.New(NewExecutableSchema(Config{Resolvers: resolver}))
 	gqlSrv.SetRecoverFunc(recoverFunc)
+	graphqlPolicy, err := authz.LoadGraphQLPolicy()
+	if err != nil {
+		return nil, fmt.Errorf("loading GraphQL authorization policy: %w", err)
+	}
+	gqlSrv.AroundFields(graphqlAuthorizationMiddleware(graphqlPolicy, mgr.Database))
 	gqlSrv.AddTransport(gqlTransport.Websocket{
 		Upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				return true
-			},
+			CheckOrigin: checkWebSocketOrigin,
 		},
 		KeepAlivePingInterval: 10 * time.Second,
+		InitFunc:              websocketSessionInit(mgr.Database, mgr.Database.Session, mgr.Database.APIToken),
 	})
 	gqlSrv.AddTransport(gqlTransport.Options{})
 	gqlSrv.AddTransport(gqlTransport.GET{})
@@ -206,7 +222,7 @@ func Initialize() (*Server, error) {
 	pluginCache.RegisterGQLHandler(gqlHandler)
 
 	r.HandleFunc(gqlEndpoint, gqlHandlerFunc)
-	r.HandleFunc(playgroundEndpoint, func(w http.ResponseWriter, r *http.Request) {
+	r.With(requireCapability(authz.SystemConfigure)).HandleFunc(playgroundEndpoint, func(w http.ResponseWriter, r *http.Request) {
 		setPageSecurityHeaders(w, r, pluginCache.ListPlugins())
 		endpoint := getProxyPrefix(r) + gqlEndpoint
 		gqlPlayground.Handler("GraphQL playground", endpoint, gqlPlayground.WithGraphiqlEnablePluginExplorer(true))(w, r)
@@ -222,15 +238,18 @@ func Initialize() (*Server, error) {
 	r.Mount("/downloads", server.getDownloadsRoutes())
 	r.Mount("/plugin", server.getPluginRoutes())
 
+	// The login page loads this endpoint before authentication. It contains
+	// display-only configured CSS and no library or account data.
 	r.HandleFunc("/css", cssHandler(cfg))
-	r.HandleFunc("/javascript", javascriptHandler(cfg))
-	r.HandleFunc("/customlocales", customLocalesHandler(cfg))
+	r.With(requireCapability(authz.AccountSelfRead)).HandleFunc("/theme.css", themeCSSHandler(server.manager))
+	r.With(requireAuthenticated).HandleFunc("/javascript", javascriptHandler(cfg))
+	r.With(requireAuthenticated).HandleFunc("/customlocales", customLocalesHandler(cfg))
 
 	staticLoginUI := statigz.FileServer(ui.LoginUIBox.(fs.ReadDirFS))
 
 	r.Get(loginEndpoint, handleLogin())
 	r.Post(loginEndpoint, handleLoginPost())
-	r.Get(logoutEndpoint, handleLogout())
+	r.With(requireCapability(authz.AccountSelfWrite)).Post(logoutEndpoint, handleLogout())
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
 	r.HandleFunc(loginEndpoint+"/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, loginEndpoint)
@@ -270,6 +289,9 @@ func Initialize() (*Server, error) {
 		}
 
 		if ext == "" || r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			// The HTML shell contains content-hashed asset names. It must always
+			// be revalidated across upgrades or a cached shell can request chunks
+			// that no longer exist in the newly deployed binary.
 			themeColor := cfg.GetThemeColor()
 			data, err := fs.ReadFile(uiFS, "index.html")
 			if err != nil {
@@ -280,8 +302,11 @@ func Initialize() (*Server, error) {
 			prefix := getProxyPrefix(r)
 			indexHtml = strings.ReplaceAll(indexHtml, "%COLOR%", themeColor)
 			indexHtml = strings.Replace(indexHtml, `<base href="/"`, fmt.Sprintf(`<base href="%s/"`, prefix), 1)
+			if csrf := session.MigrationCSRF(r.Context()); csrf != "" {
+				indexHtml = strings.Replace(indexHtml, "</head>", fmt.Sprintf(`<meta name="stash-migration-csrf" content="%s"></head>`, csrf), 1)
+			}
 
-			utils.ServeStaticContent(w, r, []byte(indexHtml))
+			utils.ServeStaticContentNoStore(w, r, []byte(indexHtml))
 		} else {
 			isStatic, _ := path.Match("/assets/*", r.URL.Path)
 			if isStatic {
@@ -298,6 +323,29 @@ func Initialize() (*Server, error) {
 	go printLatestVersion(context.TODO())
 
 	return server, nil
+}
+
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin, err := url.Parse(r.Header.Get("Origin"))
+	if err != nil || origin.Scheme == "" || origin.Host == "" || origin.User != nil {
+		return false
+	}
+	expectedScheme := "http"
+	if r.TLS != nil {
+		expectedScheme = "https"
+	}
+	if strings.EqualFold(origin.Scheme, expectedScheme) && strings.EqualFold(origin.Host, r.Host) {
+		return true
+	}
+	external := config.GetInstance().GetExternalHost()
+	if external == "" {
+		return false
+	}
+	configured, err := url.Parse(external)
+	if err != nil || configured.Scheme == "" || configured.Host == "" || configured.User != nil {
+		return false
+	}
+	return strings.EqualFold(origin.Scheme, configured.Scheme) && strings.EqualFold(origin.Host, configured.Host)
 }
 
 func handleFavicon(staticUI *statigz.Server) func(w http.ResponseWriter, r *http.Request) {
@@ -447,8 +495,19 @@ func serveFiles(w http.ResponseWriter, r *http.Request, paths []string) {
 	utils.ServeStaticContent(w, r, buffer.Bytes())
 }
 
-func cssHandler(c *config.Config) func(w http.ResponseWriter, r *http.Request) {
+type cssAssetConfig interface {
+	GetCSSEnabled() bool
+	GetDisableCustomizations() bool
+	GetCSSPath() string
+}
+
+func cssHandler(c cssAssetConfig) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css")
+		if session.IsMigrationRequest(r.Context()) {
+			utils.ServeStaticContentNoStore(w, r, nil)
+			return
+		}
 		var paths []string
 
 		if c.GetCSSEnabled() && !c.GetDisableCustomizations() {
@@ -460,13 +519,63 @@ func cssHandler(c *config.Config) func(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		w.Header().Set("Content-Type", "text/css")
 		serveFiles(w, r, paths)
 	}
 }
 
-func javascriptHandler(c *config.Config) func(w http.ResponseWriter, r *http.Request) {
+// themeCSSHandler serves only the current principal's validated theme. The
+// browser never receives filesystem paths, plugin configuration, or external
+// stylesheet URLs, and cannot use this endpoint to select another plugin.
+func themeCSSHandler(mgr *manager.Manager) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css")
+		w.Header().Set("Cache-Control", "no-store")
+		principal, err := authz.PrincipalFromContext(r.Context())
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		userID, err := strconv.ParseInt(principal.UserID, 10, 64)
+		if err != nil || userID <= 0 {
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		var themeID *string
+		err = txn.WithReadTxn(r.Context(), mgr.Database, func(ctx context.Context) error {
+			var readErr error
+			themeID, readErr = mgr.Database.Preference.Get(ctx, userID, sqlite.PreferenceThemeID)
+			return readErr
+		})
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
+		}
+		if themeID == nil {
+			utils.ServeStaticContent(w, r, nil)
+			return
+		}
+		selected := mgr.PluginCache.GetPlugin(*themeID)
+		if selected == nil || !selected.Enabled || len(selected.UI.CSS) == 0 {
+			utils.ServeStaticContent(w, r, nil)
+			return
+		}
+		serveFiles(w, r, selected.UI.CSS)
+	}
+}
+
+type javascriptAssetConfig interface {
+	GetJavascriptEnabled() bool
+	GetDisableCustomizations() bool
+	GetJavascriptPath() string
+}
+
+func javascriptHandler(c javascriptAssetConfig) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript")
+		if session.IsMigrationRequest(r.Context()) {
+			utils.ServeStaticContentNoStore(w, r, nil)
+			return
+		}
 		var paths []string
 
 		if c.GetJavascriptEnabled() && !c.GetDisableCustomizations() {
@@ -478,13 +587,23 @@ func javascriptHandler(c *config.Config) func(w http.ResponseWriter, r *http.Req
 			}
 		}
 
-		w.Header().Set("Content-Type", "text/javascript")
 		serveFiles(w, r, paths)
 	}
 }
 
-func customLocalesHandler(c *config.Config) func(w http.ResponseWriter, r *http.Request) {
+type customLocalesAssetConfig interface {
+	GetCustomLocalesEnabled() bool
+	GetDisableCustomizations() bool
+	GetCustomLocalesPath() string
+}
+
+func customLocalesHandler(c customLocalesAssetConfig) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if session.IsMigrationRequest(r.Context()) {
+			utils.ServeStaticContentNoStore(w, r, []byte("{}"))
+			return
+		}
 		buffer := bytes.Buffer{}
 
 		if c.GetCustomLocalesEnabled() && !c.GetDisableCustomizations() {
@@ -503,7 +622,6 @@ func customLocalesHandler(c *config.Config) func(w http.ResponseWriter, r *http.
 			buffer.Write([]byte("{}"))
 		}
 
-		w.Header().Set("Content-Type", "application/json")
 		utils.ServeStaticContent(w, r, buffer.Bytes())
 	}
 }
@@ -639,7 +757,6 @@ type contextKey struct {
 
 var (
 	BaseURLCtxKey = &contextKey{"BaseURL"}
-	IPCtxKey      = &contextKey{"requestIP"}
 )
 
 func BaseURLMiddleware(next http.Handler) http.Handler {

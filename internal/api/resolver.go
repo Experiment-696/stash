@@ -12,8 +12,11 @@ import (
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
+	"github.com/stashapp/stash/pkg/plugin"
 	"github.com/stashapp/stash/pkg/plugin/hook"
 	"github.com/stashapp/stash/pkg/scraper"
+	"github.com/stashapp/stash/pkg/sqlite"
+	"github.com/stashapp/stash/pkg/txn"
 )
 
 var (
@@ -33,6 +36,7 @@ type hookExecutor interface {
 }
 
 type Resolver struct {
+	database       *sqlite.Database
 	repository     models.Repository
 	sceneService   manager.SceneService
 	imageService   manager.ImageService
@@ -40,6 +44,17 @@ type Resolver struct {
 	groupService   manager.GroupService
 
 	hookExecutor hookExecutor
+
+	// themeCatalog is injected only by focused resolver tests. Production reads
+	// the manager-owned plugin cache, whose contents Admin controls.
+	themeCatalog func() []*plugin.Plugin
+}
+
+func (r *Resolver) tokenDatabase() *sqlite.Database {
+	if r.database != nil {
+		return r.database
+	}
+	return manager.GetInstance().Database
 }
 
 func (r *Resolver) scraperCache() *scraper.Cache {
@@ -139,10 +154,16 @@ type pluginResolver struct{ *Resolver }
 type configResultResolver struct{ *Resolver }
 
 func (r *Resolver) withTxn(ctx context.Context, fn func(ctx context.Context) error) error {
+	if r.database != nil {
+		return txn.WithTxn(ctx, r.database, fn)
+	}
 	return r.repository.WithTxn(ctx, fn)
 }
 
 func (r *Resolver) withReadTxn(ctx context.Context, fn func(ctx context.Context) error) error {
+	if r.database != nil {
+		return txn.WithReadTxn(ctx, r.database, fn)
+	}
 	return r.repository.WithReadTxn(ctx, fn)
 }
 

@@ -420,7 +420,7 @@ export const SettingsConfigurationPanel: React.FC = () => {
             <VideoPreviewInput value={value ?? {}} setValue={setValue} />
           )}
           renderValue={() => {
-            return null;
+            return <></>;
           }}
         />
 

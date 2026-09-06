@@ -39,6 +39,10 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
   selectedIds,
   onClose,
 }) => {
+  const { data: meData, loading: meLoading } = GQL.useMeQuery({
+    fetchPolicy: "no-cache",
+  });
+  const isAdmin = meData?.me.role === "ADMIN";
   function getDefaultOptions(): GQL.IdentifyMetadataOptionsInput {
     return {
       fieldOptions: [
@@ -91,8 +95,12 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
   const intl = useIntl();
   const Toast = useToast();
 
-  const { data: configData, error: configError } = useConfiguration();
-  const { data: scraperData, error: scraperError } = useListSceneScrapers();
+  const { data: configData, error: configError } = useConfiguration(
+    meLoading || !isAdmin
+  );
+  const { data: scraperData, error: scraperError } = useListSceneScrapers(
+    meLoading || !isAdmin
+  );
 
   const allSources = useMemo(() => {
     if (!configData || !scraperData) return;
@@ -215,7 +223,7 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
               ss.stash_box_endpoint === s.source.stash_box_endpoint
           );
 
-          if (!found) return undefined;
+          if (!found) return;
 
           const ret: IScraperSource = {
             ...found,
@@ -317,9 +325,9 @@ export const IdentifyDialog: React.FC<IIdentifyDialogProps> = ({
     // only include scrapers not already present
     return !editingSource?.id === undefined
       ? []
-      : (allSources?.filter((s) => {
+      : allSources?.filter((s) => {
           return !sources.some((ss) => ss.id === s.id);
-        }) ?? []);
+        }) ?? [];
   }
 
   function onEditSource(s?: IScraperSource) {

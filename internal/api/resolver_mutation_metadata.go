@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/identify"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/internal/manager/config"
@@ -54,7 +55,11 @@ func (r *mutationResolver) MetadataExport(ctx context.Context) (string, error) {
 }
 
 func (r *mutationResolver) ExportObjects(ctx context.Context, input manager.ExportObjectsInput) (*string, error) {
-	t := manager.CreateExportTask(config.GetInstance().GetVideoFileNamingAlgorithm(), input)
+	principal, err := authz.PrincipalFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	t := manager.CreateExportTask(config.GetInstance().GetVideoFileNamingAlgorithm(), input, principal)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -132,7 +137,11 @@ func (r *mutationResolver) BackupDatabase(ctx context.Context, input BackupDatab
 	}
 
 	if download {
-		downloadHash, err := mgr.DownloadStore.RegisterFile(backupPath, "", false)
+		principal, principalErr := authz.PrincipalFromContext(ctx)
+		if principalErr != nil {
+			return nil, principalErr
+		}
+		downloadHash, err := mgr.DownloadStore.RegisterFile(backupPath, "", false, principal, authz.DataAdmin)
 		if err != nil {
 			return nil, fmt.Errorf("error registering file for download: %w", err)
 		}
@@ -161,7 +170,11 @@ func (r *mutationResolver) AnonymiseDatabase(ctx context.Context, input Anonymis
 	}
 
 	if download {
-		downloadHash, err := mgr.DownloadStore.RegisterFile(outPath, "", false)
+		principal, principalErr := authz.PrincipalFromContext(ctx)
+		if principalErr != nil {
+			return nil, principalErr
+		}
+		downloadHash, err := mgr.DownloadStore.RegisterFile(outPath, "", false, principal, authz.DataAdmin)
 		if err != nil {
 			return nil, fmt.Errorf("error registering file for download: %w", err)
 		}

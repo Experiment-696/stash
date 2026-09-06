@@ -15,16 +15,15 @@ func (s *Manager) RunPluginTask(
 	taskName *string,
 	description *string,
 	args plugin.OperationInput,
-) int {
-	j := job.MakeJobExec(func(jobCtx context.Context, progress *job.Progress) error {
-		pluginProgress := make(chan float64)
-		task, err := s.PluginCache.CreateTask(ctx, pluginID, taskName, args, pluginProgress)
-		if err != nil {
-			return fmt.Errorf("error creating plugin task: %w", err)
-		}
+) (int, error) {
+	pluginProgress := make(chan float64)
+	task, err := s.PluginCache.CreateTask(ctx, pluginID, taskName, args, pluginProgress)
+	if err != nil {
+		return 0, fmt.Errorf("error creating plugin task: %w", err)
+	}
 
-		err = task.Start()
-		if err != nil {
+	j := job.MakeJobExec(func(jobCtx context.Context, progress *job.Progress) error {
+		if err := task.Start(); err != nil {
 			return fmt.Errorf("error running plugin task: %w", err)
 		}
 
@@ -67,5 +66,5 @@ func (s *Manager) RunPluginTask(
 	if description != nil {
 		displayName = *description
 	}
-	return s.JobManager.Add(ctx, fmt.Sprintf("Running plugin task: %s", displayName), j)
+	return s.JobManager.Add(ctx, fmt.Sprintf("Running plugin task: %s", displayName), j), nil
 }

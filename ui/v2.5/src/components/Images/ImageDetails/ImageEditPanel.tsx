@@ -45,7 +45,7 @@ interface IProps {
   image: GQL.ImageDataFragment;
   isVisible: boolean;
   onSubmit: (input: GQL.ImageUpdateInput) => Promise<void>;
-  onDelete: () => void;
+  onDelete?: (() => void) | undefined;
 }
 
 export const ImageEditPanel: React.FC<IProps> = ({
@@ -168,9 +168,7 @@ export const ImageEditPanel: React.FC<IProps> = ({
           formik.submitForm();
         }
       });
-      Mousetrap.bind("d d", () => {
-        onDelete();
-      });
+      if (onDelete) Mousetrap.bind("d d", onDelete);
 
       return () => {
         Mousetrap.unbind("s s");
@@ -469,13 +467,15 @@ export const ImageEditPanel: React.FC<IProps> = ({
             >
               <FormattedMessage id="actions.save" />
             </Button>
-            <Button
-              className="edit-button"
-              variant="danger"
-              onClick={() => onDelete()}
-            >
-              <FormattedMessage id="actions.delete" />
-            </Button>
+            {onDelete && (
+              <Button
+                className="edit-button"
+                variant="danger"
+                onClick={onDelete}
+              >
+                <FormattedMessage id="actions.delete" />
+              </Button>
+            )}
           </div>
           <div className="ml-auto text-right d-flex">
             {!isNew && (

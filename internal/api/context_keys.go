@@ -15,3 +15,6 @@ const (
 	imageKey
 	pluginKey
 )
+
+// IPCtxKey stores the request IP resolved by the trusted-proxy middleware.
+var IPCtxKey = &contextKey{"requestIP"}

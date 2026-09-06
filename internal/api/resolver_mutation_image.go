@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/file"
 	"github.com/stashapp/stash/pkg/image"
@@ -413,54 +414,72 @@ func (r *mutationResolver) ImagesDestroy(ctx context.Context, input models.Image
 }
 
 func (r *mutationResolver) ImageIncrementO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	imageID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Image
-
-		ret, err = qb.IncrementOCounter(ctx, imageID)
+		ret, err = r.tokenDatabase().Activity.ChangeImageO(ctx, userID, int64(imageID), 1)
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("increment image activity", err)
 	}
 
 	return ret, nil
 }
 
 func (r *mutationResolver) ImageDecrementO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	imageID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Image
-
-		ret, err = qb.DecrementOCounter(ctx, imageID)
+		ret, err = r.tokenDatabase().Activity.ChangeImageO(ctx, userID, int64(imageID), -1)
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("decrement image activity", err)
 	}
 
 	return ret, nil
 }
 
 func (r *mutationResolver) ImageResetO(ctx context.Context, id string) (ret int, err error) {
+	principal, err := authz.RequireContext(ctx, authz.ActivitySelfWrite)
+	if err != nil {
+		return 0, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return 0, err
+	}
 	imageID, err := strconv.Atoi(id)
 	if err != nil {
 		return 0, fmt.Errorf("converting id: %w", err)
 	}
 
 	if err := r.withTxn(ctx, func(ctx context.Context) error {
-		qb := r.repository.Image
-
-		ret, err = qb.ResetOCounter(ctx, imageID)
+		ret, err = r.tokenDatabase().Activity.ResetImageO(ctx, userID, int64(imageID))
 		return err
 	}); err != nil {
-		return 0, err
+		return 0, personalDataError("reset image activity", err)
 	}
 
 	return ret, nil

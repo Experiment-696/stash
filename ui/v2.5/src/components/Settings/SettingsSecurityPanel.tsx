@@ -124,7 +124,7 @@ export const SettingsSecurityPanel: React.FC = () => {
         renderValue={(v) => {
           if (v?.username && v?.password)
             return <span>{v?.username ?? ""}</span>;
-          return null;
+          return <></>;
         }}
       />
 

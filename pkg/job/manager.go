@@ -105,7 +105,7 @@ func (m *Manager) notifyNewJob(j *Job) {
 	for _, s := range m.subscriptions {
 		// don't block if channel is full
 		select {
-		case s.newJob <- j.statusCopy():
+		case s.newJob <- *j:
 		default:
 		}
 	}
@@ -232,9 +232,7 @@ func (m *Manager) removeJob(job *Job) {
 		return
 	}
 
-	// release the executor and subtask details so they can be GC'd
-	// while the job remains in the graveyard for status reporting
-	job.exec = nil
+	// clear any subtasks
 	job.Details = nil
 
 	m.queue = append(m.queue[:index], m.queue[index+1:]...)
@@ -248,7 +246,7 @@ func (m *Manager) removeJob(job *Job) {
 	for _, s := range m.subscriptions {
 		// don't block if channel is full
 		select {
-		case s.removedJob <- job.statusCopy():
+		case s.removedJob <- *job:
 		default:
 		}
 	}
@@ -312,7 +310,8 @@ func (m *Manager) GetJob(id int) *Job {
 	// get from the queue or graveyard
 	_, j := m.getJob(append(m.queue, m.graveyard...), id)
 	if j != nil {
-		jCopy := j.statusCopy()
+		// make a copy of the job and return the pointer
+		jCopy := *j
 		return &jCopy
 	}
 
@@ -327,7 +326,8 @@ func (m *Manager) GetQueue() []Job {
 	var ret []Job
 
 	for _, j := range m.queue {
-		ret = append(ret, j.statusCopy())
+		jCopy := *j
+		ret = append(ret, jCopy)
 	}
 
 	return ret
@@ -372,7 +372,7 @@ func (m *Manager) notifyJobUpdate(j *Job) {
 	for _, s := range m.subscriptions {
 		// don't block if channel is full
 		select {
-		case s.updatedJob <- j.statusCopy():
+		case s.updatedJob <- *j:
 		default:
 		}
 	}

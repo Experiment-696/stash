@@ -7,10 +7,12 @@ import (
 
 	"github.com/stashapp/stash/internal/api/loaders"
 	"github.com/stashapp/stash/internal/api/urlbuilders"
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager"
 	"github.com/stashapp/stash/pkg/models"
 	"github.com/stashapp/stash/pkg/session"
 	"github.com/stashapp/stash/pkg/signedurl"
+	"github.com/stashapp/stash/pkg/sqlite"
 )
 
 func convertVideoFile(f models.File) (*models.VideoFile, error) {
@@ -110,7 +112,37 @@ func (r *sceneResolver) Rating(ctx context.Context, obj *models.Scene) (*int, er
 }
 
 func (r *sceneResolver) Rating100(ctx context.Context, obj *models.Scene) (*int, error) {
-	return obj.Rating, nil
+	state, err := r.personalState(ctx, obj.ID)
+	return state.Rating, err
+}
+
+func (r *sceneResolver) Rating100Average(ctx context.Context, obj *models.Scene) (float64, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingAverage, err
+}
+
+func (r *sceneResolver) Rating100Count(ctx context.Context, obj *models.Scene) (int, error) {
+	state, err := r.personalState(ctx, obj.ID)
+	return state.RatingCount, err
+}
+
+func (r *sceneResolver) personalState(ctx context.Context, sceneID int) (ret sqlite.ScenePersonalState, err error) {
+	principal, err := authz.RequireContext(ctx, authz.AccountSelfRead)
+	if err != nil {
+		return ret, err
+	}
+	userID, err := persistedPrincipalUserID(principal)
+	if err != nil {
+		return ret, err
+	}
+	err = r.withReadTxn(ctx, func(txCtx context.Context) error {
+		ret, err = r.tokenDatabase().PersonalState.Scene(txCtx, userID, int64(sceneID))
+		return err
+	})
+	if err != nil {
+		return ret, personalDataError("load scene state", err)
+	}
+	return ret, nil
 }
 
 func (r *sceneResolver) Paths(ctx context.Context, obj *models.Scene) (*ScenePathsType, error) {

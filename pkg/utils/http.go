@@ -35,6 +35,15 @@ func ServeStaticContent(w http.ResponseWriter, r *http.Request, data []byte) {
 	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
 }
 
+// ServeStaticContentNoStore serves generated shell content that must never be
+// reused across application upgrades.
+func ServeStaticContentNoStore(w http.ResponseWriter, r *http.Request, data []byte) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Del("ETag")
+
+	http.ServeContent(w, r, "", time.Time{}, bytes.NewReader(data))
+}
+
 // Serves static content at filepath, adding Cache-Control: no-cache.
 // Responds to conditional requests using the file modtime.
 func ServeStaticFile(w http.ResponseWriter, r *http.Request, filepath string) {

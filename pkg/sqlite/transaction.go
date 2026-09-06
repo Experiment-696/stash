@@ -26,6 +26,9 @@ func (db *Database) WithDatabase(ctx context.Context) (context.Context, error) {
 		return ctx, nil
 	}
 
+	if err := db.Ready(); err != nil {
+		return nil, &DatabaseUnavailableError{Cause: err}
+	}
 	return context.WithValue(ctx, dbKey, db.readDB), nil
 }
 
@@ -35,6 +38,9 @@ func (db *Database) Begin(ctx context.Context, writable bool) (context.Context, 
 		logger.Error(string(debug.Stack()))
 
 		return nil, fmt.Errorf("already in transaction")
+	}
+	if err := db.Ready(); err != nil {
+		return nil, &DatabaseUnavailableError{Cause: err}
 	}
 
 	dbtx := db.readDB

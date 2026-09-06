@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/static"
 	"github.com/stashapp/stash/pkg/logger"
 	"github.com/stashapp/stash/pkg/models"
@@ -28,8 +29,7 @@ func (rs studioRoutes) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Route("/{studioId}", func(r chi.Router) {
-		r.Use(rs.StudioCtx)
-		r.Get("/image", rs.Image)
+		r.With(requireCapability(authz.LibraryRead), rs.StudioCtx).Get("/image", rs.Image)
 	})
 
 	return r

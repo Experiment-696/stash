@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/internal/static"
 	"github.com/stashapp/stash/pkg/image"
@@ -39,10 +40,9 @@ func (rs galleryRoutes) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Route("/{galleryId}", func(r chi.Router) {
-		r.Use(rs.GalleryCtx)
-
-		r.Get("/cover", rs.Cover)
-		r.Get("/preview/{imageIndex}", rs.Preview)
+		library := r.With(requireCapability(authz.LibraryRead), rs.GalleryCtx)
+		library.Get("/cover", rs.Cover)
+		library.Get("/preview/{imageIndex}", rs.Preview)
 	})
 
 	return r

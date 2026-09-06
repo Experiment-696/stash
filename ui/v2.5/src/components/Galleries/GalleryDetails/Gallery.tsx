@@ -20,6 +20,7 @@ import { LoadingIndicator } from "src/components/Shared/LoadingIndicator";
 import { Icon } from "src/components/Shared/Icon";
 import { Counter } from "src/components/Shared/Counter";
 import Mousetrap from "mousetrap";
+import { useRoleCapabilities } from "src/hooks/RoleCapabilities";
 import { useGalleryLightbox } from "src/hooks/Lightbox/hooks";
 import { useToast } from "src/hooks/Toast";
 import { OrganizedButton } from "src/components/Scenes/SceneDetails/OrganizedButton";
@@ -166,6 +167,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
     showLightbox(imageindex - 1);
   }
 
+  const { isAdmin, canEditMetadata } = useRoleCapabilities();
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState<boolean>(false);
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
 
@@ -177,7 +179,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   function maybeRenderDeleteDialog() {
-    if (isDeleteAlertOpen && gallery) {
+    if (isAdmin && isDeleteAlertOpen && gallery) {
       return (
         <DeleteGalleriesDialog
           selected={[{ ...gallery, image_count: NaN }]}
@@ -188,7 +190,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   function maybeRenderGenerateDialog() {
-    if (isGenerateDialogOpen) {
+    if (isAdmin && isGenerateDialogOpen) {
       return (
         <GenerateDialog
           selectedIds={[gallery.id]}
@@ -200,6 +202,7 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   }
 
   function renderOperations() {
+    if (!isAdmin) return null;
     return (
       <Dropdown>
         <Dropdown.Toggle
@@ -285,11 +288,13 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
                 <FormattedMessage id="chapters" />
               </Nav.Link>
             </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="gallery-edit-panel">
-                <FormattedMessage id="actions.edit" />
-              </Nav.Link>
-            </Nav.Item>
+            {canEditMetadata && (
+              <Nav.Item>
+                <Nav.Link eventKey="gallery-edit-panel">
+                  <FormattedMessage id="actions.edit" />
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
         </div>
 
@@ -310,14 +315,16 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
               isVisible={activeTabKey === "gallery-chapter-panel"}
             />
           </Tab.Pane>
-          <Tab.Pane eventKey="gallery-edit-panel" mountOnEnter>
-            <GalleryEditPanel
-              isVisible={activeTabKey === "gallery-edit-panel"}
-              gallery={gallery}
-              onSubmit={onSave}
-              onDelete={() => setIsDeleteAlertOpen(true)}
-            />
-          </Tab.Pane>
+          {canEditMetadata && (
+            <Tab.Pane eventKey="gallery-edit-panel" mountOnEnter>
+              <GalleryEditPanel
+                isVisible={activeTabKey === "gallery-edit-panel"}
+                gallery={gallery}
+                onSubmit={onSave}
+                onDelete={isAdmin ? () => setIsDeleteAlertOpen(true) : undefined}
+              />
+            </Tab.Pane>
+          )}
           {gallery.scenes.length > 0 && (
             <Tab.Pane eventKey="gallery-scenes-panel">
               <GalleryScenesPanel scenes={gallery.scenes} />
@@ -387,7 +394,9 @@ export const GalleryPage: React.FC<IProps> = ({ gallery, add }) => {
   useEffect(() => {
     Mousetrap.bind("a", () => setActiveTabKey("gallery-details-panel"));
     Mousetrap.bind("c", () => setActiveTabKey("gallery-chapter-panel"));
-    Mousetrap.bind("e", () => setActiveTabKey("gallery-edit-panel"));
+    Mousetrap.bind("e", () => {
+      if (canEditMetadata) setActiveTabKey("gallery-edit-panel");
+    });
     Mousetrap.bind("f", () => setActiveTabKey("gallery-file-info-panel"));
     Mousetrap.bind(",", () => setCollapsed(!collapsed));
 

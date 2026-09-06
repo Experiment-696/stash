@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/stashapp/stash/internal/authz"
 	"github.com/stashapp/stash/internal/manager/config"
 	"github.com/stashapp/stash/pkg/fsutil"
 	"github.com/stashapp/stash/pkg/models"
@@ -13,7 +14,122 @@ import (
 )
 
 func (r *queryResolver) Configuration(ctx context.Context) (*ConfigResult, error) {
-	return makeConfigResult(), nil
+	result := makeConfigResult()
+	principal, err := authz.PrincipalFromContext(ctx)
+	if err == nil && principal.Role == authz.RoleAdmin {
+		return result, nil
+	}
+
+	return makeRoleSafeConfigResult(result), nil
+}
+
+// makeRoleSafeConfigResult preserves the complete ConfigResult shape required
+// by authenticated library UI consumers while removing administrator-only
+// credentials, filesystem paths, executable customization, and plugin data.
+func makeRoleSafeConfigResult(full *ConfigResult) *ConfigResult {
+	safe := *full
+	general := *full.General
+	general.Stashes = make([]*config.StashConfig, len(full.General.Stashes))
+	for i, stash := range full.General.Stashes {
+		if stash == nil {
+			continue
+		}
+		redacted := *stash
+		redacted.Path = ""
+		general.Stashes[i] = &redacted
+	}
+	general.DatabasePath = ""
+	general.BackupDirectoryPath = ""
+	general.DeleteTrashPath = ""
+	general.GeneratedPath = ""
+	general.MetadataPath = ""
+	general.ConfigFilePath = ""
+	general.ScrapersPath = ""
+	general.PluginsPath = ""
+	general.CachePath = ""
+	general.BlobsPath = ""
+	general.FfmpegPath = ""
+	general.FfprobePath = ""
+	general.APIKey = ""
+	general.Username = ""
+	general.Password = ""
+	general.LogFile = nil
+	general.CustomPerformerImageLocation = nil
+	general.PythonPath = ""
+	general.TranscodeInputArgs = []string{}
+	general.TranscodeOutputArgs = []string{}
+	general.LiveTranscodeInputArgs = []string{}
+	general.LiveTranscodeOutputArgs = []string{}
+	general.Excludes = []string{}
+	general.ImageExcludes = []string{}
+	general.ScraperPackageSources = []*models.PackageSource{}
+	general.PluginPackageSources = []*models.PackageSource{}
+	general.StashBoxes = append([]*models.StashBox(nil), full.General.StashBoxes...)
+	for i, box := range general.StashBoxes {
+		if box == nil {
+			continue
+		}
+		redacted := *box
+		redacted.APIKey = ""
+		general.StashBoxes[i] = &redacted
+	}
+	safe.General = &general
+
+	iface := *full.Interface
+	iface.HandyKey = nil
+	iface.CSS = nil
+	iface.CSSEnabled = nil
+	iface.Javascript = nil
+	iface.JavascriptEnabled = nil
+	iface.CustomLocales = nil
+	iface.CustomLocalesEnabled = nil
+	safe.Interface = &iface
+
+	dlna := *full.Dlna
+	dlna.WhitelistedIPs = []string{}
+	dlna.Interfaces = []string{}
+	safe.Dlna = &dlna
+
+	scraping := *full.Scraping
+	scraping.ScraperCDPPath = nil
+	safe.Scraping = &scraping
+
+	defaults := *full.Defaults
+	if full.Defaults.Identify != nil {
+		identifyDefaults := *full.Defaults.Identify
+		identifyDefaults.SceneIDs = []string{}
+		identifyDefaults.Paths = []string{}
+		defaults.Identify = &identifyDefaults
+	}
+	safe.Defaults = &defaults
+
+	safe.UI = roleSafeUIConfiguration(full.UI)
+	safe.Plugins = map[string]map[string]interface{}{}
+	return &safe
+}
+
+func roleSafeUIConfiguration(full map[string]interface{}) map[string]interface{} {
+	safe := make(map[string]interface{})
+	for _, key := range []string{
+		"title", "lastNoteSeen", "maxOptionsShown", "ratingSystemOptions",
+		"previewVolume", "abbreviateCounters", "compactExpandedDetails",
+		"showAllDetails", "enableMovieBackgroundImage",
+		"enablePerformerBackgroundImage", "enableStudioBackgroundImage",
+		"enableTagBackgroundImage", "showChildStudioContent",
+		"showChildTagContent", "showLinksOnPerformerCard",
+		"showPerformerCardOnHover", "showTagCardOnHover",
+		"imageWallOptions", "alwaysStartFromBeginning",
+		"disableMobileMediaAutoRotateEnabled", "enableChromecast",
+		"minimumPlayPercent", "showAbLoopControls", "showRangeMarkers",
+		"trackActivity", "vrTag", "taskDefaults", "tableColumns",
+		"frontPageContent", "editing", "troubleshootingMode",
+		"taggerConfig", "pinnedFilters",
+	} {
+		if value, found := full[key]; found {
+			safe[key] = value
+		}
+	}
+	return safe
 }
 
 func (r *queryResolver) Directory(ctx context.Context, path, locale *string) (*Directory, error) {
@@ -25,7 +141,7 @@ func (r *queryResolver) Directory(ctx context.Context, path, locale *string) (*D
 
 	var dirPath = ""
 	if path != nil {
-		dirPath = strings.Trim(*path, "\"")
+		dirPath = *path
 	}
 	currentDir := getDir(dirPath)
 	directories, err := listDir(col, currentDir)

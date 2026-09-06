@@ -720,6 +720,13 @@ func (qb *ImageStore) CountByGalleryID(ctx context.Context, galleryID int) (int,
 }
 
 func (qb *ImageStore) OCountByPerformerID(ctx context.Context, performerID int) (int, error) {
+	if userID, ok := personalActivityUserID(ctx); ok {
+		var ret int
+		err := dbWrapper.Get(ctx, &ret, `SELECT COALESCE(SUM(a.o_count), 0) FROM user_image_activity a
+			INNER JOIN performers_images pi ON pi.image_id = a.image_id
+			WHERE a.user_id = ? AND pi.performer_id = ?`, userID, performerID)
+		return ret, err
+	}
 	table := qb.table()
 	joinTable := performersImagesJoinTable
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table).InnerJoin(joinTable, goqu.On(table.Col(idColumn).Eq(joinTable.Col(imageIDColumn)))).Where(joinTable.Col(performerIDColumn).Eq(performerID))
@@ -734,6 +741,23 @@ func (qb *ImageStore) OCountByPerformerID(ctx context.Context, performerID int) 
 
 func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, depth int) (int, error) {
 	var ret int
+	if userID, ok := personalActivityUserID(ctx); ok {
+		if depth == 0 {
+			err := dbWrapper.Get(ctx, &ret, `SELECT COALESCE(SUM(a.o_count), 0) FROM user_image_activity a
+				INNER JOIN images i ON i.id = a.image_id
+				WHERE a.user_id = ? AND i.studio_id = ?`, userID, studioID)
+			return ret, err
+		}
+		err := dbWrapper.Get(ctx, &ret, `WITH RECURSIVE sub_studios AS (
+			SELECT id, 0 AS level FROM studios WHERE id = ?
+			UNION ALL SELECT s.id, ss.level + 1 FROM studios s
+			INNER JOIN sub_studios ss ON s.parent_id = ss.id
+			WHERE ss.level < ? OR ? < 0)
+			SELECT COALESCE(SUM(a.o_count), 0) FROM user_image_activity a
+			INNER JOIN images i ON i.id = a.image_id
+			WHERE a.user_id = ? AND i.studio_id IN (SELECT id FROM sub_studios)`, studioID, depth, depth, userID)
+		return ret, err
+	}
 
 	if depth != 0 {
 		return qb.oCountByStudioIDRecursive(ctx, studioID, depth)
@@ -752,6 +776,11 @@ func (qb *ImageStore) OCountByStudioID(ctx context.Context, studioID int, depth 
 }
 
 func (qb *ImageStore) OCount(ctx context.Context) (int, error) {
+	if userID, ok := personalActivityUserID(ctx); ok {
+		var ret int
+		err := dbWrapper.Get(ctx, &ret, `SELECT COALESCE(SUM(o_count), 0) FROM user_image_activity WHERE user_id = ?`, userID)
+		return ret, err
+	}
 	table := qb.table()
 
 	q := dialect.Select(goqu.COALESCE(goqu.SUM("o_counter"), 0)).From(table)
@@ -916,7 +945,7 @@ func (qb *ImageStore) makeQuery(ctx context.Context, imageFilter *models.ImageFi
 		return nil, err
 	}
 
-	if err := qb.setImageSortAndPagination(&query, findFilter); err != nil {
+	if err := qb.setImageSortAndPagination(ctx, &query, findFilter); err != nil {
 		return nil, err
 	}
 
@@ -1037,7 +1066,7 @@ var imageSortOptions = sortOptions{
 	"updated_at",
 }
 
-func (qb *ImageStore) setImageSortAndPagination(q *queryBuilder, findFilter *models.FindFilterType) error {
+func (qb *ImageStore) setImageSortAndPagination(ctx context.Context, q *queryBuilder, findFilter *models.FindFilterType) error {
 	sortClause := ""
 
 	if findFilter != nil && findFilter.Sort != nil && *findFilter.Sort != "" {
@@ -1126,6 +1155,12 @@ func (qb *ImageStore) setImageSortAndPagination(q *queryBuilder, findFilter *mod
 				imageTable,
 				getSortDirection(direction),
 			)
+		case "o_counter":
+			if userID, ok := personalActivityUserID(ctx); ok {
+				sortClause = " ORDER BY COALESCE((" + personalImageOCountSQL(userID, "images.id") + "), 0) " + direction
+			} else {
+				sortClause = getSort(sort, direction, "images")
+			}
 		default:
 			sortClause = getSort(sort, direction, "images")
 		}

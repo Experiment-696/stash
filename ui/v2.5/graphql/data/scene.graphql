@@ -8,6 +8,8 @@ fragment SceneData on Scene {
   date
   production_date
   rating100
+  rating100_average
+  rating100_count
   o_counter
   organized
   interactive

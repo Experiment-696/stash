@@ -1,0 +1,6 @@
+query BootstrapConfiguration {
+  bootstrapConfiguration {
+    status
+    os
+  }
+}

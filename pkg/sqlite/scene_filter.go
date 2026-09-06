@@ -301,13 +301,23 @@ func (qb *sceneFilterHandler) playCountCriterionHandler(count *models.IntCriteri
 }
 
 func (qb *sceneFilterHandler) oCountCriterionHandler(count *models.IntCriterionInput) criterionHandlerFunc {
-	h := countCriterionHandlerBuilder{
-		primaryTable: sceneTable,
-		joinTable:    scenesODatesTable,
-		primaryFK:    sceneIDColumn,
-	}
+	return func(ctx context.Context, f *filterBuilder) {
+		if count == nil {
+			return
+		}
+		if userID, ok := personalActivityUserID(ctx); ok {
+			clause, args := getIntCriterionWhereClause("("+personalSceneOCountSQL(userID, "scenes.id")+")", *count)
+			f.addWhere(clause, args...)
+			return
+		}
 
-	return h.handler(count)
+		h := countCriterionHandlerBuilder{
+			primaryTable: sceneTable,
+			joinTable:    scenesODatesTable,
+			primaryFK:    sceneIDColumn,
+		}
+		h.handler(count)(ctx, f)
+	}
 }
 
 func (qb *sceneFilterHandler) fileCountCriterionHandler(fileCount *models.IntCriterionInput) criterionHandlerFunc {

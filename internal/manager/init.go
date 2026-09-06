@@ -196,8 +196,6 @@ func (s *Manager) postInit(ctx context.Context) error {
 	s.RefreshScraperCache()
 	s.RefreshScraperSourceManager()
 
-	s.RefreshDLNA()
-
 	s.SetBlobStoreOptions()
 
 	s.writeStashIcon()
@@ -233,6 +231,9 @@ func (s *Manager) postInit(ctx context.Context) error {
 			return err
 		}
 	}
+	// DLNA's multiuser gate depends on the persisted account count. Refresh
+	// only after the database is ready so startup cannot bypass that gate.
+	s.RefreshDLNA()
 
 	// Set the proxy if defined in config
 	if s.Config.GetProxy() != "" {

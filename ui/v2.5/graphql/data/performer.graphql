@@ -38,6 +38,8 @@ fragment PerformerData on Performer {
     updated_at
   }
   rating100
+  rating100_average
+  rating100_count
   details
   death_date
   hair_color
